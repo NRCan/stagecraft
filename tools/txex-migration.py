@@ -17,3 +17,5 @@ gc = gspread.login(username, password)
 ws = gc.open_by_key('0AiLXeWvTKFmBdFpxdEdHUWJCYnVMS0lnUHJDelFVc0E').worksheet('TX_Data')
 
 rows = ws.row_values(1)
+
+print rows

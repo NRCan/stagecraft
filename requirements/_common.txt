@@ -10,6 +10,9 @@ South==0.8.4
 requests==2.2.1
 logstash_formatter==0.5.7
 
+#reads google sheets - for the transaction explorer import to dashboard tool
+gspread==0.2.2
+
 jsonschema==2.3.0
 
 # psycopg2 requires the libpq-dev package
