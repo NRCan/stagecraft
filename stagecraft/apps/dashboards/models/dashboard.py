@@ -3,6 +3,7 @@ from django.db import models
 from uuidfield import UUIDField
 
 from stagecraft.apps.organisation.views import NodeView
+from stagecraft.libs.validation.validators import slug_validator
 
 
 def list_to_tuple_pairs(elements):
@@ -30,10 +31,6 @@ class Dashboard(models.Model):
     objects = DashboardManager()
 
     id = UUIDField(auto=True, primary_key=True, hyphenate=True)
-    slug_validator = RegexValidator(
-        '^[-a-z0-9]+$',
-        message='Slug can only contain lower case letters, numbers or hyphens'
-    )
     slug = models.CharField(
         max_length=90,
         unique=True,

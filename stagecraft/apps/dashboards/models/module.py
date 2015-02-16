@@ -11,6 +11,7 @@ from jsonschema.validators import validator_for
 from uuidfield import UUIDField
 
 from stagecraft.apps.datasets.models import DataSet
+from stagecraft.libs.validation.validators import slug_validator
 
 from .dashboard import Dashboard
 
@@ -56,10 +57,6 @@ class Module(models.Model):
     data_set = models.ForeignKey(DataSet, null=True, blank=True)
     parent = models.ForeignKey("self", null=True, blank=True)
 
-    slug_validator = RegexValidator(
-        '^[-a-z0-9]+$',
-        message='Slug can only contain lower case letters, numbers or hyphens'
-    )
     slug = models.CharField(
         max_length=60,
         validators=[
