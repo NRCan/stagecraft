@@ -1,11 +1,10 @@
 import cPickle as pickle
-import pprint
 import os
 import requests
 import sys
 
 from collections import defaultdict
-from stagecraft.tools.spreadsheets import SpreadsheetMunger
+from spreadsheets import SpreadsheetMunger
 
 
 def get_govuk_organisations():
@@ -42,18 +41,18 @@ def load_data(username, password):
         'names_service_slug': 7,
         'names_tx_id_column': 18,
     })
-    #transactions_data = spreadsheets.load(username, password)
+    # transactions_data = spreadsheets.load(username, password)
 
-    #with open('transactions_data.pickle', 'w') as data_file:
-        #pickle.dump(transactions_data, data_file)
+    # with open('transactions_data.pickle', 'w') as data_file:
+    # pickle.dump(transactions_data, data_file)
 
     with open('transactions_data.pickle', 'r') as data_file:
         transactions_data = pickle.load(data_file)
 
-    #govuk_organisations = get_govuk_organisations()
+    # govuk_organisations = get_govuk_organisations()
 
-    #with open('govuk_organisations.pickle', 'w') as org_file:
-        #pickle.dump(govuk_organisations, org_file)
+    # with open('govuk_organisations.pickle', 'w') as org_file:
+        # pickle.dump(govuk_organisations, org_file)
 
     with open('govuk_organisations.pickle', 'r') as org_file:
         govuk_organisations = pickle.load(org_file)
@@ -99,17 +98,17 @@ def main():
             # print '{} doesnt have an
             # abbr'.format(unicode(org['title']).encode('ascii','ignore'))
 
-    #abbrs = dict(abbrs)
-    #abbrs_twice = \
-        #{abbr: abbrs[abbr] for abbr, orgs in abbrs.items() if len(orgs) > 1}
+    # abbrs = dict(abbrs)
+    # abbrs_twice = \
+        # {abbr: abbrs[abbr] for abbr, orgs in abbrs.items() if len(orgs) > 1}
 
     list_abbrs = abbrs.keys()
     list_abbrs.sort()
 
     print list_abbrs
 
-    #pprint.pprint(dict(abbrs_twice), width=-1)
-    #pprint.pprint(dict(types), width=-1)
+    # pprint.pprint(dict(abbrs_twice), width=-1)
+    # pprint.pprint(dict(types), width=-1)
 
     not_found_depts = set()
     not_found_agencies = set()
@@ -125,7 +124,8 @@ def main():
         if dept is None:
             not_found_depts.add(dept_abbr)
         elif len(dept) > 1:
-            print 'haerguhaergaegr'
+            print 'More than one department for abbreviation {}'.format(
+                dept_abbr)
 
         if agency_abbr:
             if agency_abbr == 'INSS':
@@ -133,48 +133,51 @@ def main():
             else:
                 agency = abbrs.get(agency_abbr.lower(), None)
                 if agency is None:
-                    agency = abbrs.get(transaction['agency']['name'].lower(), None)
+                    agency_abbr = transaction['agency']['name'].lower()
+                    agency = abbrs.get(
+                        agency_abbr, None)
                     if agency is None:
                         not_found_agencies.add(
                             (agency_abbr, transaction['agency']['name']))
-                    elif len(agency) > 1:
-                        print 'haerguhaergaegr'
-
+                if len(agency) > 1:
+                    print 'More than one agency for abbreviation {}'.format(
+                        agency_abbr)
 
     print not_found_depts
     print not_found_agencies
 
     # STUFF FOR EXAMINING SPREADSHEET STUFF
 
-    #transactions = set()
-    #services = set()
-    #agencies = set()
-    #departments = set()
+    # transactions = set()
+    # services = set()
+    # agencies = set()
+    # departments = set()
 
     # for transaction in transactions_data:
-    #transactions.add((transaction['slug'], transaction['name']))
+    # transactions.add((transaction['slug'], transaction['name']))
     # services.add(
-    #(transaction['service']['slug'], transaction['service']['name']))
+    # (transaction['service']['slug'], transaction['service']['name']))
     # if transaction['agency'] is not None:
     # agencies.add((transaction['agency']['slug'], transaction[
-    #'agency']['name'], transaction['agency']['abbr']))
+    # 'agency']['name'], transaction['agency']['abbr']))
     # departments.add((
     # transaction['department']['slug'],
     # transaction['department']['name'],
     # transaction['department']['abbr']))
 
-    #slugs = dict()
-    #add_to_slugs(slugs, transactions)
-    #add_to_slugs(slugs, services)
-    #add_to_slugs(slugs, agencies)
-    #add_to_slugs(slugs, departments)
+    # slugs = dict()
+    # add_to_slugs(slugs, transactions)
+    # add_to_slugs(slugs, services)
+    # add_to_slugs(slugs, agencies)
+    # add_to_slugs(slugs, departments)
 
     # print len(transactions)
     # print len(services)
     # print len(agencies)
     # print len(departments)
 
-    # print len(transactions) + len(services) + len(agencies) + len(departments)
+    # print len(transactions) + len(services) + len(agencies) + len(
+    #     departments)
     # print len(slugs)
 
     # print transactions

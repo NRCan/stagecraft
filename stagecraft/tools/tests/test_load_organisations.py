@@ -1,5 +1,5 @@
 from hamcrest import (
-    assert_that, equal_to, is_not, is_
+    assert_that, is_not, is_
 )
 from mock import patch
 
@@ -15,14 +15,18 @@ tx_fixture = [
         'service': {'name': '', 'slug': ''},
         'agency': None,
         'tx_id': '',
-        'department': {'slug': 'home office', 'abbr': 'Home Office', 'name': 'Home Office'},
+        'department': {
+            'slug': 'home office',
+            'abbr': 'Home Office',
+            'name': 'Home Office'},
         'slug': ''
     }
 ]
 
 govuk_fixture = [
     {
-        'title': "Attorney General's Office", 
+        'format': u'Ministerial department',
+        'title': "Attorney General's Office",
         'details': {
             'slug': 'attorney-generals-office',
             'abbreviation': 'AGO',
@@ -31,12 +35,16 @@ govuk_fixture = [
         'parent_organisations': [],
         'child_organisations': [
             {
-                'web_url': 'https://www.gov.uk/government/organisations/treasury-solicitor-s-department',
-                'id': 'https://www.gov.uk/api/organisations/treasury-solicitor-s-department'
+                'web_url': "https://www.gov.uk/government"
+                           "/organisations/treasury-solicitor-s-department",
+                'id': "https://www.gov.uk/api/organisations/"
+                      "treasury-solicitor-s-department"
             },
             {
-                'web_url': 'https://www.gov.uk/government/organisations/crown-prosecution-service',
-                'id': 'https://www.gov.uk/api/organisations/crown-prosecution-service'
+                'web_url': "https://www.gov.uk/government/organisations"
+                           "/crown-prosecution-service",
+                'id': "https://www.gov.uk/api/organisations"
+                      "/crown-prosecution-service"
             }
         ]
     },
@@ -71,5 +79,6 @@ def test_load_organisations(mock_load_data):
     assert_that(org_parents[1].typeOf.name, is_('service'))
     assert_that(org_parents[2].name, is_('Paper love agency'))
     assert_that(org_parents[2].typeOf.name, is_('agency'))
-    assert_that(org_parents[3].name, is_('Department of Administrative Affairs'))
+    assert_that(org_parents[3].name, is_(
+        'Department of Administrative Affairs'))
     assert_that(org_parents[3].typeOf.name, is_('department'))
