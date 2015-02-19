@@ -1,54 +1,23 @@
 from hamcrest import (
-    assert_that, is_not, is_
+    assert_that, is_not, is_, equal_to
 )
 from mock import patch
+import json
 
 from stagecraft.apps.dashboards.tests.factories.factories import ModuleFactory
 from stagecraft.apps.datasets.tests.factories import DataSetFactory
 
-from ..load_organisations import load_organisations
+from ..load_organisations import(
+    load_organisations,
+    build_up_org_hash,
+    build_up_node_hash)
 
 
-tx_fixture = [
-    {
-        'name': '',
-        'service': {'name': '', 'slug': ''},
-        'agency': None,
-        'tx_id': '',
-        'department': {
-            'slug': 'home office',
-            'abbr': 'Home Office',
-            'name': 'Home Office'},
-        'slug': ''
-    }
-]
+with open('stagecraft/tools/fixtures/result.json', 'r') as f:
+    tx_fixture = json.loads(f.read())
 
-govuk_fixture = [
-    {
-        'format': u'Ministerial department',
-        'title': "Attorney General's Office",
-        'details': {
-            'slug': 'attorney-generals-office',
-            'abbreviation': 'AGO',
-            'closed_at': None,
-        },
-        'parent_organisations': [],
-        'child_organisations': [
-            {
-                'web_url': "https://www.gov.uk/government"
-                           "/organisations/treasury-solicitor-s-department",
-                'id': "https://www.gov.uk/api/organisations/"
-                      "treasury-solicitor-s-department"
-            },
-            {
-                'web_url': "https://www.gov.uk/government/organisations"
-                           "/crown-prosecution-service",
-                'id': "https://www.gov.uk/api/organisations"
-                      "/crown-prosecution-service"
-            }
-        ]
-    },
-]
+with open('stagecraft/tools/fixtures/organisations.json', 'r') as f:
+    govuk_fixture = json.loads(f.read())
 
 
 @patch('stagecraft.tools.load_organisations.load_data')
@@ -82,3 +51,54 @@ def test_load_organisations(mock_load_data):
     assert_that(org_parents[3].name, is_(
         'Department of Administrative Affairs'))
     assert_that(org_parents[3].typeOf.name, is_('department'))
+
+
+def test_build_up_node_hash():
+    expected_result = {
+        'Training and resources on workplace relations: registrations': {
+            'name': "Training and resources on"
+                    " workplace relations: registrations",
+            'abbreviation': '',
+            'typeOf': 'transaction',
+            'parents': ['Training and resources on workplace relations']
+        },
+        'Training and resources on workplace relations': {
+            'name': 'Training and resources on workplace relations',
+            'abbreviation': '',
+            'typeOf': 'service',
+            'parents': [u'cps']
+        },
+        u'cps': {
+            'name': u'Crown Prosecution Service',
+            'abbreviation': u'CPS',
+            'typeOf': 'agency',
+            'parents': [u'ago']
+        },
+        u'ago': {
+            'name': "Attorney General's Office",
+            'abbreviation': u'AGO',
+            'typeOf': 'department',
+            'parents': []
+        }
+    }
+    result = build_up_node_hash(tx_fixture, govuk_fixture)
+    assert_that(result, equal_to(expected_result))
+
+
+def test_build_up_org_hash():
+    expected_result = {
+        'cps': {
+            'name': 'Crown Prosecution Service',
+            'abbreviation': 'CPS',
+            'typeOf': 'agency',
+            'parents': ['ago']
+        },
+        'ago': {
+            'name': "Attorney General's Office",
+            'abbreviation': 'AGO',
+            'typeOf': 'department',
+            'parents': []
+        }
+    }
+    result = build_up_org_hash(govuk_fixture)
+    assert_that(result, equal_to(expected_result))

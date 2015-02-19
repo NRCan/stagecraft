@@ -57,6 +57,13 @@ def load_data(username, password):
     with open('govuk_organisations.pickle', 'r') as org_file:
         govuk_organisations = pickle.load(org_file)
 
+    import json
+    # with open('thing.json', 'w') as f:
+    # f.write(json.dumps([org for org in govuk_organisations if org['web_url'] == 'https://www.gov.uk/government/organisations/crown-prosecution-service']))  # noqa
+    # with open('thing2.json', 'w') as f:
+    # f.write(json.dumps([org for org in govuk_organisations if org['web_url'] == 'https://www.gov.uk/government/organisations/attorney-generals-office']))  # noqa
+    #with open('thing3.json', 'w') as f:
+        #f.write(json.dumps(list(set([org['format'] for org in govuk_organisations]))))  # noqa
     return transactions_data, govuk_organisations
 
 
@@ -65,6 +72,114 @@ def load_organisations(username, password):
 
     print transactions_data
     print govuk_organisations
+    # create_departments()
+    # create_agencies()
+    # create_services()
+    # transactions = create_transactions()
+    # for transaction in transactions:
+    # associate_with_dashboard(transaction, stuff)
+    # associate_with_parents_recursively(transaction, stuff)
+
+# a type for all of these or map them? or is there a
+# field other than format we should use?
+types_hash = {
+    "Advisory non-departmental public body": 'department',
+    "Tribunal non-departmental public body": 'department',
+    "Sub-organisation": 'department',
+    "Executive agency": 'department',
+    "Devolved administration": 'department',
+    "Ministerial department": 'department',
+    "Non-ministerial department": 'agency',
+    "Executive office": 'department',
+    "Civil Service": 'department',
+    "Other": 'department',
+    "Executive non-departmental public body": 'department',
+    "Independent monitoring body": 'department',
+    "Public corporation": 'department'
+}
+
+
+def build_up_org_hash(organisations):
+    org_id_hash = {}
+    for org in organisations:
+        org_id_hash[org['id']] = {
+            'name': org['title'],
+            'abbreviation': org['details']['abbreviation'],
+            'typeOf': types_hash[org['format']],
+            'parents': []
+        }
+
+    for org in organisations:
+        for parent in org['parent_organisations']:
+            org_id_hash[org['id']]['parents'].append(
+                slugify(org_id_hash[parent['id']]['abbreviation']))
+
+    org_hash = {}
+    for org_id, org in org_id_hash.items():
+        org_hash[slugify(org['abbreviation'])] = org
+    return org_hash
+
+
+def slugify(string):
+    return string.lower()
+
+
+def build_up_node_hash(transactions, organisations):
+    def service_name(tx):
+        return "{}".format(tx['service']['name'])
+
+    def transaction_name(tx):
+        return "{}: {}".format(tx['service']['name'], tx['slug'])
+
+    no_agency_found = []
+    no_dep_found = []
+    org_hash = build_up_org_hash(organisations)
+    """
+    go through each transaction and build hash with names as keys
+    """
+    for tx in transactions:
+        org_hash[transaction_name(tx)] = {
+            'name': transaction_name(tx),
+            'abbreviation': '',
+            'typeOf': 'transaction',
+            'parents': [service_name(tx)]
+        }
+        org_hash[service_name(tx)] = {
+            'name': service_name(tx),
+            'abbreviation': '',
+            'typeOf': 'service',
+            'parents': []
+        }
+    """
+    go through again
+    """
+    for tx in transactions:
+        """
+        ***THIS IS ASSUMING AGENCIES ARE ALWAYS JUNIOR TO DEPARTMENTS****
+        """
+        # if there is an agency then get the thing by abbreviation
+        if tx["agency"]:
+            # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
+            if slugify(tx['agency']['abbr']) in org_hash:
+                agency_parent = org_hash[slugify(tx['agency']['abbr'])]
+                org_hash[service_name(tx)]['parents'].append(
+                    slugify(agency_parent['abbreviation']))
+            # if there is no thing for abbreviation then add to not found
+            else:
+                no_agency_found.append(tx)
+        # if there is a department and no agency
+        elif tx['department']:
+            # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
+            if slugify(tx['department']['abbr']) in org_hash:
+                department_parent = org_hash[slugify(tx['department']['abbr'])]
+                org_hash[service_name(tx)]['parents'].append(
+                    slugify(department_parent['abbreviation']))
+            # if there is no thing for abbreviation then add to not found
+            else:
+                no_dep_found.append(tx)
+        else:
+            raise "transaction with no deparment or agency!"
+    return org_hash
 
 
 def main():
