@@ -88,8 +88,18 @@ def associate_with_dashboard(transaction_hash):
     transaction = Node.objects.get(name=transaction_name(transaction_hash))
     dashboards = Dashboard.objects.by_tx_id(transaction_hash['tx_id'])
     for dashboard in dashboards:
+        # do this even if there is an existing dashboard
+        existing_org = dashboard.organisation
         dashboard.organisation = transaction
         dashboard.save()
+        # but say if the ancestors do not contain the old one.
+        if(existing_org not in
+           [org for org in dashboard.organisation.get_ancestors()]):
+            print("existing org {} for dashboard {}"
+                  "not in new ancestors {}".format(
+                      existing_org,
+                      dashboard.title,
+                      [org for org in dashboard.organisation.get_ancestors()]))
 
 # a type for all of these or map them? or is there a
 # field other than format we should use?
