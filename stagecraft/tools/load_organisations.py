@@ -207,33 +207,47 @@ def transaction_name(tx):
     return "{}: {}".format(tx['name'], tx['slug'])
 
 
-def add_type_to_agency(agency):
-    # import pdb; pdb.set_trace()
-    agency['typeOf'] = 'agency'
-    return agency
+def add_type_to_parent(parent, typeOf):
+    parent['typeOf'] = typeOf
+    return parent
 
 
-def add_type_to_department(department):
-    # import pdb; pdb.set_trace()
-    department['typeOf'] = 'department'
-    return department
+no_agency_found = []
+no_dep_found = []
+
+
+def associate_parents(tx, org_hash, typeOf, rememberer):
+    # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
+    if slugify(tx[typeOf]['abbr']) in org_hash:
+        parent = org_hash[slugify(tx[typeOf]['abbr'])]
+        parent = add_type_to_parent(parent, typeOf)
+        org_hash[service_name(tx)]['parents'].append(
+            slugify(parent['abbreviation']))
+    # try the name if no luck with the abbreviation
+    elif slugify(tx[typeOf]['name']) in org_hash:
+        parent = org_hash[slugify(tx[typeOf]['name'])]
+        parent = add_type_to_parent(parent)
+        org_hash[service_name(tx)]['parents'].append(
+            slugify(parent['name']))
+    # if there is nothing for name
+    # or abbreviation then add to not found
+    else:
+        rememberer.append(tx)
 
 
 def build_up_node_hash(transactions, organisations):
 
-    no_agency_found = []
-    no_dep_found = []
     org_hash = build_up_org_hash(organisations)
     """
     go through each transaction and build hash with names as keys
     """
     for tx in transactions:
         if transaction_name(tx) in org_hash:
-            raise 'More than one transaction with name {}'.format(
-                transaction_name(tx))
+            raise Exception('More than one transaction with name {}'.format(
+                transaction_name(tx)))
         if service_name(tx) in org_hash:
-            raise 'More than one transaction with name {}'.format(
-                service_name(tx))
+            raise Exception('More than one service with name {}'.format(
+                service_name(tx)))
 
         org_hash[transaction_name(tx)] = {
             'name': transaction_name(tx),
@@ -256,42 +270,13 @@ def build_up_node_hash(transactions, organisations):
         """
         # if there is an agency then get the thing by abbreviation
         if tx["agency"]:
-            # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
-            if slugify(tx['agency']['abbr']) in org_hash:
-                agency_parent = org_hash[slugify(tx['agency']['abbr'])]
-                agency_parent = add_type_to_agency(agency_parent)
-                org_hash[service_name(tx)]['parents'].append(
-                    slugify(agency_parent['abbreviation']))
-            # try the name if no luck with the abbreviation
-            elif slugify(tx['agency']['name']) in org_hash:
-                agency_parent = org_hash[slugify(tx['agency']['name'])]
-                agency_parent = add_type_to_agency(agency_parent)
-                org_hash[service_name(tx)]['parents'].append(
-                    slugify(agency_parent['name']))
-            # if there is nothing for name
-            # or abbreviation then add to not found
-            else:
-                no_agency_found.append(tx)
+            associate_parents(tx, org_hash, 'agency', no_agency_found)
         # if there is a department and no agency
         elif tx['department']:
             # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
-            if slugify(tx['department']['abbr']) in org_hash:
-                department_parent = org_hash[slugify(tx['department']['abbr'])]
-                department_parent = add_type_to_department(department_parent)
-                org_hash[service_name(tx)]['parents'].append(
-                    slugify(department_parent['abbreviation']))
-            # try the name if no luck with the abbreviation
-            elif slugify(tx['department']['name']) in org_hash:
-                department_parent = org_hash[slugify(tx['department']['name'])]
-                department_parent = add_type_to_department(department_parent)
-                org_hash[service_name(tx)]['parents'].append(
-                    slugify(agency_parent['name']))
-            # if there is nothing for name
-            # or abbreviation then add to not found
-            else:
-                no_dep_found.append(tx)
+            associate_parents(tx, org_hash, 'department', no_dep_found)
         else:
-            raise "transaction with no department or agency!"
+            raise Exception("transaction with no department or agency!")
 
     print "No department found:"
     print no_dep_found
