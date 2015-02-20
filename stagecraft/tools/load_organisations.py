@@ -101,23 +101,25 @@ def associate_with_dashboard(transaction_hash):
                       dashboard.title,
                       [org for org in dashboard.organisation.get_ancestors()]))
 
-# a type for all of these or map them? or is there a
-# field other than format we should use?
-# we may need to map from what they are in tx
+# These may not be 100% accurate however the derived
+# typeOf will be overwritten with more certain information
+# based on iterating through all tx rows in build_up_node_hash.
+# We use this to to get the full org graph with types even when orgs are
+# not associated with a transaction in txex. This is the best guess mapping.
 types_hash = {
-    "Advisory non-departmental public body": 'department',
-    "Tribunal non-departmental public body": 'department',
-    "Sub-organisation": 'department',
-    "Executive agency": 'department',
-    "Devolved administration": 'department',
+    "Advisory non-departmental public body": 'agency',
+    "Tribunal non-departmental public body": 'agency',
+    "Sub-organisation": 'agency',
+    "Executive agency": 'agency',
+    "Devolved administration": 'agency',
     "Ministerial department": 'department',
-    "Non-ministerial department": 'agency',
-    "Executive office": 'department',
-    "Civil Service": 'department',
-    "Other": 'department',
-    "Executive non-departmental public body": 'department',
-    "Independent monitoring body": 'department',
-    "Public corporation": 'department'
+    "Non-ministerial department": 'department',
+    "Executive office": 'agency',
+    "Civil Service": 'agency',
+    "Other": 'agency',
+    "Executive non-departmental public body": 'agency',
+    "Independent monitoring body": 'agency',
+    "Public corporation": 'agency'
 }
 
 
@@ -141,6 +143,10 @@ def create_nodes(nodes_hash):
 
 def build_up_org_hash(organisations):
     org_id_hash = {}
+    # note, typeOf will be overwritten with more certain information
+    # based on iterating through all tx rows in build_up_node_hash.
+    # We do this here though to to get the full org graph even when orgs are
+    # not associated with a transaction in txex
     for org in organisations:
         org_id_hash[org['id']] = {
             'name': org['title'],
@@ -201,6 +207,18 @@ def transaction_name(tx):
     return "{}: {}".format(tx['name'], tx['slug'])
 
 
+def add_type_to_agency(agency):
+    # import pdb; pdb.set_trace()
+    agency['typeOf'] = 'agency'
+    return agency
+
+
+def add_type_to_department(department):
+    # import pdb; pdb.set_trace()
+    department['typeOf'] = 'department'
+    return department
+
+
 def build_up_node_hash(transactions, organisations):
 
     no_agency_found = []
@@ -241,11 +259,13 @@ def build_up_node_hash(transactions, organisations):
             # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
             if slugify(tx['agency']['abbr']) in org_hash:
                 agency_parent = org_hash[slugify(tx['agency']['abbr'])]
+                agency_parent = add_type_to_agency(agency_parent)
                 org_hash[service_name(tx)]['parents'].append(
                     slugify(agency_parent['abbreviation']))
             # try the name if no luck with the abbreviation
             elif slugify(tx['agency']['name']) in org_hash:
                 agency_parent = org_hash[slugify(tx['agency']['name'])]
+                agency_parent = add_type_to_agency(agency_parent)
                 org_hash[service_name(tx)]['parents'].append(
                     slugify(agency_parent['name']))
             # if there is nothing for name
@@ -257,11 +277,13 @@ def build_up_node_hash(transactions, organisations):
             # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
             if slugify(tx['department']['abbr']) in org_hash:
                 department_parent = org_hash[slugify(tx['department']['abbr'])]
+                department_parent = add_type_to_department(department_parent)
                 org_hash[service_name(tx)]['parents'].append(
                     slugify(department_parent['abbreviation']))
             # try the name if no luck with the abbreviation
             elif slugify(tx['department']['name']) in org_hash:
-                agency_parent = org_hash[slugify(tx['department']['name'])]
+                department_parent = org_hash[slugify(tx['department']['name'])]
+                department_parent = add_type_to_department(department_parent)
                 org_hash[service_name(tx)]['parents'].append(
                     slugify(agency_parent['name']))
             # if there is nothing for name
@@ -269,7 +291,7 @@ def build_up_node_hash(transactions, organisations):
             else:
                 no_dep_found.append(tx)
         else:
-            raise "transaction with no deparment or agency!"
+            raise "transaction with no department or agency!"
 
     print "No department found:"
     print no_dep_found

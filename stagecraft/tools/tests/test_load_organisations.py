@@ -189,7 +189,7 @@ def test_build_up_org_hash():
         'cps': {
             'name': 'Crown Prosecution Service',
             'abbreviation': 'CPS',
-            'typeOf': 'agency',
+            'typeOf': 'department',
             'parents': ['ago', 'foo']
         },
         'ago': {
