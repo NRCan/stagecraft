@@ -6,7 +6,7 @@ from stagecraft.apps.organisation.models import Node, NodeType
 from stagecraft.apps.dashboards.models import Dashboard
 
 from collections import defaultdict
-from spreadsheets import SpreadsheetMunger
+# from spreadsheets import SpreadsheetMunger
 
 
 def get_govuk_organisations():
@@ -25,24 +25,14 @@ def get_govuk_organisations():
     return results
 
 
-def add_to_slugs(slugs, things):
-    for thing in things:
-        slug = thing[0]
-        if slug in slugs:
-            print '{} exists. offender: {} original: {}'.format(
-                slug, thing, slugs[slug])
-        else:
-            slugs[slug] = thing
-
-
 def load_data(username, password):
-    spreadsheets = SpreadsheetMunger({
-        'names_name': 8,
-        'names_slug': 9,
-        'names_service_name': 6,
-        'names_service_slug': 7,
-        'names_tx_id_column': 18,
-    })
+    # spreadsheets = SpreadsheetMunger({
+        # 'names_name': 8,
+        # 'names_slug': 9,
+        # 'names_service_name': 6,
+        # 'names_service_slug': 7,
+        # 'names_tx_id_column': 18,
+    # })
     # transactions_data = spreadsheets.load(username, password)
 
     # with open('transactions_data.pickle', 'w') as data_file:
@@ -59,7 +49,7 @@ def load_data(username, password):
     with open('govuk_organisations.pickle', 'r') as org_file:
         govuk_organisations = pickle.load(org_file)
 
-    import json
+    # import json
     # with open('thing.json', 'w') as f:
     # f.write(json.dumps([org for org in govuk_organisations if org['web_url'] == 'https://www.gov.uk/government/organisations/crown-prosecution-service']))  # noqa
     # with open('thing2.json', 'w') as f:
@@ -72,8 +62,14 @@ def load_data(username, password):
 def load_organisations(username, password):
     transactions_data, govuk_organisations = load_data(username, password)
 
+    # remove any orgs from the list from GOV.UK where they have shut down
+    govuk_organisations = \
+        [org for org in govuk_organisations if org[
+            'details']['closed_at'] is None]
+
     print transactions_data
     print govuk_organisations
+
     nodes_hash = build_up_node_hash(transactions_data, govuk_organisations)
     # as this is recursive internally
     # we could filter to start with the transactions only
@@ -97,6 +93,7 @@ def associate_with_dashboard(transaction_hash):
 
 # a type for all of these or map them? or is there a
 # field other than format we should use?
+# we may need to map from what they are in tx
 types_hash = {
     "Advisory non-departmental public body": 'department',
     "Tribunal non-departmental public body": 'department',
@@ -142,14 +139,40 @@ def build_up_org_hash(organisations):
             'parents': []
         }
 
+    not_found_orgs = defaultdict(list)
+
+    # assign parents
     for org in organisations:
         for parent in org['parent_organisations']:
-            org_id_hash[org['id']]['parents'].append(
-                slugify(org_id_hash[parent['id']]['abbreviation']))
+            if org_id_hash[parent['id']]:
+                parent_abbreviation = org_id_hash[parent['id']]['abbreviation']
+            else:
+                not_found_orgs[org_id_hash[parent['id']]['abbreviation']] = org
 
+            org_id_hash[org['id']]['parents'].append(
+                slugify(parent_abbreviation))
+
+    # now the structure of the gov.uk org graph is replicated,
+    # create a new hash keyed off the abbreviation for use in linking
+    # to the tx data.
     org_hash = {}
+    abbrs_twice = defaultdict(list)
     for org_id, org in org_id_hash.items():
-        org_hash[slugify(org['abbreviation'])] = org
+        if slugify(org['abbreviation']) in org_hash:
+            # this could be the place for case statements to
+            # decide on a better names but for now just record any problems
+            abbrs_twice[slugify(org['abbreviation'])].append(
+                org)
+            if not abbrs_twice[slugify(org['abbreviation'])]:
+                abbrs_twice[slugify(org['abbreviation'])].append(
+                    org_hash[slugify(org['abbreviation'])])
+        else:
+            org_hash[slugify(org['abbreviation'])] = org
+
+    print "No parents found:"
+    print not_found_orgs
+    print "Duplicate abbreviations - need handling:"
+    print abbrs_twice
     return org_hash
 
 
@@ -165,7 +188,7 @@ def service_name(tx):
 
 
 def transaction_name(tx):
-    return "{}: {}".format(tx['service']['name'], tx['slug'])
+    return "{}: {}".format(tx['name'], tx['slug'])
 
 
 def build_up_node_hash(transactions, organisations):
@@ -177,6 +200,13 @@ def build_up_node_hash(transactions, organisations):
     go through each transaction and build hash with names as keys
     """
     for tx in transactions:
+        if transaction_name(tx) in org_hash:
+            raise 'More than one transaction with name {}'.format(
+                transaction_name(tx))
+        if service_name(tx) in org_hash:
+            raise 'More than one transaction with name {}'.format(
+                service_name(tx))
+
         org_hash[transaction_name(tx)] = {
             'name': transaction_name(tx),
             'abbreviation': None,
@@ -203,7 +233,13 @@ def build_up_node_hash(transactions, organisations):
                 agency_parent = org_hash[slugify(tx['agency']['abbr'])]
                 org_hash[service_name(tx)]['parents'].append(
                     slugify(agency_parent['abbreviation']))
-            # if there is no thing for abbreviation then add to not found
+            # try the name if no luck with the abbreviation
+            elif slugify(tx['agency']['name']) in org_hash:
+                agency_parent = org_hash[slugify(tx['agency']['name'])]
+                org_hash[service_name(tx)]['parents'].append(
+                    slugify(agency_parent['name']))
+            # if there is nothing for name
+            # or abbreviation then add to not found
             else:
                 no_agency_found.append(tx)
         # if there is a department and no agency
@@ -213,11 +249,22 @@ def build_up_node_hash(transactions, organisations):
                 department_parent = org_hash[slugify(tx['department']['abbr'])]
                 org_hash[service_name(tx)]['parents'].append(
                     slugify(department_parent['abbreviation']))
-            # if there is no thing for abbreviation then add to not found
+            # try the name if no luck with the abbreviation
+            elif slugify(tx['department']['name']) in org_hash:
+                agency_parent = org_hash[slugify(tx['department']['name'])]
+                org_hash[service_name(tx)]['parents'].append(
+                    slugify(agency_parent['name']))
+            # if there is nothing for name
+            # or abbreviation then add to not found
             else:
                 no_dep_found.append(tx)
         else:
             raise "transaction with no deparment or agency!"
+
+    print "No department found:"
+    print no_dep_found
+    print "No agency found:"
+    print no_agency_found
     return org_hash
 
 
@@ -232,112 +279,6 @@ def main():
         sys.exit(1)
 
     load_organisations(username, password)
-
-    sys.exit(0)
-
-    # remove any orgs from the list from GOV.UK where they have shut down
-    govuk_organisations = \
-        [org for org in govuk_organisations if org[
-            'details']['closed_at'] is None]
-
-    abbrs = defaultdict(list)
-    types = defaultdict(list)
-
-    for org in govuk_organisations:
-        types[org['format']].append(org)
-        abbr = org['details']['abbreviation']
-        if abbr:
-            abbrs[abbr.lower()].append(org)
-        # else:
-            # print '{} doesnt have an
-            # abbr'.format(unicode(org['title']).encode('ascii','ignore'))
-
-    # abbrs = dict(abbrs)
-    # abbrs_twice = \
-        # {abbr: abbrs[abbr] for abbr, orgs in abbrs.items() if len(orgs) > 1}
-
-    list_abbrs = abbrs.keys()
-    list_abbrs.sort()
-
-    print list_abbrs
-
-    # pprint.pprint(dict(abbrs_twice), width=-1)
-    # pprint.pprint(dict(types), width=-1)
-
-    not_found_depts = set()
-    not_found_agencies = set()
-
-    for transaction in transactions_data:
-        dept_abbr = transaction['department']['abbr']
-        if transaction['agency'] is not None:
-            agency_abbr = transaction['agency']['abbr']
-        else:
-            agency_abbr = None
-
-        dept = abbrs.get(dept_abbr.lower(), None)
-        if dept is None:
-            not_found_depts.add(dept_abbr)
-        elif len(dept) > 1:
-            print 'More than one department for abbreviation {}'.format(
-                dept_abbr)
-
-        if agency_abbr:
-            if agency_abbr == 'INSS':
-                agency = abbrs['the insolvency service']
-            else:
-                agency = abbrs.get(agency_abbr.lower(), None)
-                if agency is None:
-                    agency_abbr = transaction['agency']['name'].lower()
-                    agency = abbrs.get(
-                        agency_abbr, None)
-                    if agency is None:
-                        not_found_agencies.add(
-                            (agency_abbr, transaction['agency']['name']))
-                if len(agency) > 1:
-                    print 'More than one agency for abbreviation {}'.format(
-                        agency_abbr)
-
-    print not_found_depts
-    print not_found_agencies
-
-    # STUFF FOR EXAMINING SPREADSHEET STUFF
-
-    # transactions = set()
-    # services = set()
-    # agencies = set()
-    # departments = set()
-
-    # for transaction in transactions_data:
-    # transactions.add((transaction['slug'], transaction['name']))
-    # services.add(
-    # (transaction['service']['slug'], transaction['service']['name']))
-    # if transaction['agency'] is not None:
-    # agencies.add((transaction['agency']['slug'], transaction[
-    # 'agency']['name'], transaction['agency']['abbr']))
-    # departments.add((
-    # transaction['department']['slug'],
-    # transaction['department']['name'],
-    # transaction['department']['abbr']))
-
-    # slugs = dict()
-    # add_to_slugs(slugs, transactions)
-    # add_to_slugs(slugs, services)
-    # add_to_slugs(slugs, agencies)
-    # add_to_slugs(slugs, departments)
-
-    # print len(transactions)
-    # print len(services)
-    # print len(agencies)
-    # print len(departments)
-
-    # print len(transactions) + len(services) + len(agencies) + len(
-    #     departments)
-    # print len(slugs)
-
-    # print transactions
-    # print services
-    # print agencies
-    # print departments
 
 
 if __name__ == '__main__':
