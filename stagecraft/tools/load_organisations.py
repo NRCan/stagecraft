@@ -1,3 +1,4 @@
+import django
 import cPickle as pickle
 import os
 import requests
@@ -101,6 +102,7 @@ def load_organisations(username, password):
 def associate_with_dashboard(transaction_hash):
     transaction = Node.objects.filter(
         name=transaction_name(transaction_hash)).first()
+    dashboards = []
     if transaction:
         dashboards = Dashboard.objects.by_tx_id(transaction_hash['tx_id'])
         for dashboard in dashboards:
@@ -117,7 +119,8 @@ def associate_with_dashboard(transaction_hash):
                           dashboard.title,
                           [org for org
                            in dashboard.organisation.get_ancestors()]))
-    return transaction
+    print [dashboard for dashboard in dashboards]
+    return [dashboard for dashboard in dashboards]
 
 
 # These may not be 100% accurate however the derived
@@ -145,7 +148,9 @@ types_hash = {
 def create_nodes(nodes_hash):
     failed_to_create = []
     created = []
+    existing = []
     failed_to_find_or_create_parent = defaultdict(list)
+    errors = defaultdict(list)
 
     def _get_or_create_node(node_hash, nodes_hash):
         node_type, _ = NodeType.objects.get_or_create(name=node_hash['typeOf'])
@@ -155,11 +160,18 @@ def create_nodes(nodes_hash):
                 abbreviation=slugify(node_hash['abbreviation']),
                 typeOf=node_type
             )
-            created.append({
-                'name': node_hash['name'],
-                'abbreviation': slugify(node_hash['abbreviation']),
-                'typeOf': node_type
-            })
+            if _:
+                created.append({
+                    'name': node_hash['name'],
+                    'abbreviation': slugify(node_hash['abbreviation']),
+                    'typeOf': node_type
+                })
+            else:
+                existing.append({
+                    'name': node_hash['name'],
+                    'abbreviation': slugify(node_hash['abbreviation']),
+                    'typeOf': node_type
+                })
             for parent_id in node_hash['parents']:
                 parent = _get_or_create_node(nodes_hash[parent_id], nodes_hash)
                 if parent:
@@ -168,7 +180,9 @@ def create_nodes(nodes_hash):
                     failed_to_find_or_create_parent[node_hash['name']].append(
                         nodes_hash[parent_id])
             return node
-        except:
+        except(django.db.utils.DataError,
+               django.db.utils.IntegrityError) as e:
+            errors[e.__class__].append(e)
             failed_to_create.append({
                 'name': node_hash['name'],
                 'abbreviation': slugify(node_hash['abbreviation']),
@@ -182,9 +196,16 @@ def create_nodes(nodes_hash):
     print created
     print len(created)
     print '^'
+    print 'Existing'
+    print existing
+    print len(existing)
+    print '^'
     print 'Failed to find or create'
     print failed_to_create
     print len(failed_to_create)
+    for error_type, error in errors.items():
+        print error_type
+        print len(error)
     print '^'
     print 'Failed to find or create parent'
     print failed_to_find_or_create_parent
@@ -212,7 +233,11 @@ def build_up_org_hash(organisations):
     for org in organisations:
         for parent in org['parent_organisations']:
             if org_id_hash[parent['id']]:
-                parent_abbreviation = org_id_hash[parent['id']]['abbreviation']
+                abbr = org_id_hash[parent['id']]['abbreviation']
+                if abbr:
+                    parent_abbreviation = abbr
+                elif org_id_hash[parent['id']]['name']:
+                    parent_abbreviation = org_id_hash[parent['id']]['name']
             else:
                 not_found_orgs[org_id_hash[parent['id']]['abbreviation']] = org
 
@@ -283,14 +308,34 @@ def associate_parents(tx, org_hash, typeOf, rememberer):
     if slugify(tx[typeOf]['abbr']) in org_hash:
         parent = org_hash[slugify(tx[typeOf]['abbr'])]
         parent = add_type_to_parent(parent, typeOf)
-        org_hash[service_name(tx)]['parents'].append(
-            slugify(parent['abbreviation']))
+        # prevent null or blank string parents
+        if slugify(parent['abbreviation']):
+            org_hash[service_name(tx)]['parents'].append(
+                slugify(parent['abbreviation']))
+        else:
+            # This needs to be better and make clear
+            # the parent has no name or abbrevation
+            # how did it get his way?
+            print("This needs to be better and make clear"
+                  "the parent has no name or abbrevation"
+                  "how did it get his way?")
+            rememberer.append(('service', org_hash[service_name(tx)]))
     # try the name if no luck with the abbreviation
     elif slugify(tx[typeOf]['name']) in org_hash:
         parent = org_hash[slugify(tx[typeOf]['name'])]
         parent = add_type_to_parent(parent, typeOf)
-        org_hash[service_name(tx)]['parents'].append(
-            slugify(parent['name']))
+        # prevent null or blank string parents
+        if slugify(parent['name']):
+            org_hash[service_name(tx)]['parents'].append(
+                slugify(parent['name']))
+        else:
+            # This needs to be better and make clear
+            # the parent has no name or abbrevation
+            # how did it get his way?
+            print("This needs to be better and make clear"
+                  "the parent has no name or abbrevation"
+                  "how did it get his way?")
+            rememberer.append(('service', org_hash[service_name(tx)]))
     # if there is nothing for name
     # or abbreviation then add to not found
     else:
@@ -305,7 +350,6 @@ def build_up_node_hash(transactions, organisations):
     print 'organisations to create:'
     print len(organisations)
     print '^'
-    # import pdb; pdb.set_trace()
     org_hash = build_up_org_hash(organisations)
     more_than_one_tx = []
     more_than_one_service = []
