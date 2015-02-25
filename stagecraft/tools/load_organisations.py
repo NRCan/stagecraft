@@ -67,8 +67,8 @@ def load_organisations(username, password):
         [org for org in govuk_organisations if org[
             'details']['closed_at'] is None]
 
-    print transactions_data
-    print govuk_organisations
+    # print transactions_data
+    # print govuk_organisations
 
     nodes_hash = build_up_node_hash(transactions_data, govuk_organisations)
     # as this is recursive internally
@@ -81,17 +81,21 @@ def load_organisations(username, password):
     # up a transaction name
     create_nodes(nodes_hash)
 
-    finished = 0
-    bruk = 0
+    finished = []
+    bruk = []
     for transaction in transactions_data:
         if associate_with_dashboard(transaction):
-            finished += 1
+            finished.append(transaction)
         else:
-            bruk += 1
-    print 'Worked'
+            bruk.append(transaction)
+    print 'Successfully linked to dashboards'
     print finished
-    print 'Broken'
+    print len(finished)
+    print '^'
+    print 'Broken links'
     print bruk
+    print len(bruk)
+    print '^'
 
 
 def associate_with_dashboard(transaction_hash):
@@ -105,15 +109,15 @@ def associate_with_dashboard(transaction_hash):
             dashboard.organisation = transaction
             dashboard.save()
             # but say if the ancestors do not contain the old one.
-            if(existing_org not in
+            if(existing_org and existing_org not in
                [org for org in dashboard.organisation.get_ancestors()]):
                 print("existing org {} for dashboard {}"
                       "not in new ancestors {}".format(
-                          existing_org,
+                          existing_org.name,
                           dashboard.title,
                           [org for org
                            in dashboard.organisation.get_ancestors()]))
-    return not not transaction
+    return transaction
 
 
 # These may not be 100% accurate however the derived
@@ -146,7 +150,6 @@ def create_nodes(nodes_hash):
     def _get_or_create_node(node_hash, nodes_hash):
         node_type, _ = NodeType.objects.get_or_create(name=node_hash['typeOf'])
         try:
-            # import pdb; pdb.set_trace()
             node, _ = Node.objects.get_or_create(
                 name=node_hash['name'],
                 abbreviation=slugify(node_hash['abbreviation']),
@@ -177,12 +180,15 @@ def create_nodes(nodes_hash):
 
     print 'Created'
     print created
+    print len(created)
     print '^'
     print 'Failed to find or create'
     print failed_to_create
+    print len(failed_to_create)
     print '^'
     print 'Failed to find or create parent'
     print failed_to_find_or_create_parent
+    print len(failed_to_find_or_create_parent)
     print '^'
 
 
@@ -222,20 +228,28 @@ def build_up_org_hash(organisations):
         if slugify(org['abbreviation']) in org_hash:
             # this could be the place for case statements to
             # decide on a better names but for now just record any problems
-            abbrs_twice[slugify(org['abbreviation'])].append(
-                org)
             if not abbrs_twice[slugify(org['abbreviation'])]:
                 abbrs_twice[slugify(org['abbreviation'])].append(
                     org_hash[slugify(org['abbreviation'])])
+            abbrs_twice[slugify(org['abbreviation'])].append(
+                org)
+            print 'Using name as key for:'
+            print org
+            org_hash[slugify(org['name'])] = org
         else:
-            org_hash[slugify(org['abbreviation'])] = org
+            # if there is an abbreviation use it
+            # otherwise use the name
+            if slugify(org['abbreviation']):
+                org_hash[slugify(org['abbreviation'])] = org
+            else:
+                print org
+                org_hash[slugify(org['name'])] = org
 
     print "No parents found:"
     print not_found_orgs
     print "Duplicate abbreviations - need handling:"
     # 6 problems found.
-    # import pdb; pdb.set_trace()
-    print [abbr for abbr, tx in abbrs_twice.items()]
+    print [(abbr, tx) for abbr, tx in abbrs_twice.items()]
     return org_hash
 
 
@@ -280,11 +294,18 @@ def associate_parents(tx, org_hash, typeOf, rememberer):
     # if there is nothing for name
     # or abbreviation then add to not found
     else:
-        rememberer.append(tx)
+        rememberer.append(tx[typeOf])
 
 
 def build_up_node_hash(transactions, organisations):
 
+    print 'transactions to create:'
+    print len(transactions)
+    print '^'
+    print 'organisations to create:'
+    print len(organisations)
+    print '^'
+    # import pdb; pdb.set_trace()
     org_hash = build_up_org_hash(organisations)
     more_than_one_tx = []
     more_than_one_service = []
@@ -315,9 +336,11 @@ def build_up_node_hash(transactions, organisations):
         }
     print 'more than one service'
     print more_than_one_service
+    print len(more_than_one_service)
     print '^'
     print 'more than one tx'
     print more_than_one_tx
+    print len(more_than_one_tx)
     print '^'
     """
     go through again
@@ -338,8 +361,9 @@ def build_up_node_hash(transactions, organisations):
 
     print "No department found:"
     print no_dep_found
+    print len(no_dep_found)
     print "No agency found:"
-    print no_agency_found
+    print len(no_agency_found)
     return org_hash
 
 
