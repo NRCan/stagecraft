@@ -80,26 +80,41 @@ def load_organisations(username, password):
     # have been created and associate based on the standard way of building
     # up a transaction name
     create_nodes(nodes_hash)
+
+    finished = 0
+    bruk = 0
     for transaction in transactions_data:
-        associate_with_dashboard(transaction)
+        if associate_with_dashboard(transaction):
+            finished += 1
+        else:
+            bruk += 1
+    print 'Worked'
+    print finished
+    print 'Broken'
+    print bruk
 
 
 def associate_with_dashboard(transaction_hash):
-    transaction = Node.objects.get(name=transaction_name(transaction_hash))
-    dashboards = Dashboard.objects.by_tx_id(transaction_hash['tx_id'])
-    for dashboard in dashboards:
-        # do this even if there is an existing dashboard
-        existing_org = dashboard.organisation
-        dashboard.organisation = transaction
-        dashboard.save()
-        # but say if the ancestors do not contain the old one.
-        if(existing_org not in
-           [org for org in dashboard.organisation.get_ancestors()]):
-            print("existing org {} for dashboard {}"
-                  "not in new ancestors {}".format(
-                      existing_org,
-                      dashboard.title,
-                      [org for org in dashboard.organisation.get_ancestors()]))
+    transaction = Node.objects.filter(
+        name=transaction_name(transaction_hash)).first()
+    if transaction:
+        dashboards = Dashboard.objects.by_tx_id(transaction_hash['tx_id'])
+        for dashboard in dashboards:
+            # do this even if there is an existing dashboard
+            existing_org = dashboard.organisation
+            dashboard.organisation = transaction
+            dashboard.save()
+            # but say if the ancestors do not contain the old one.
+            if(existing_org not in
+               [org for org in dashboard.organisation.get_ancestors()]):
+                print("existing org {} for dashboard {}"
+                      "not in new ancestors {}".format(
+                          existing_org,
+                          dashboard.title,
+                          [org for org
+                           in dashboard.organisation.get_ancestors()]))
+    return not not transaction
+
 
 # These may not be 100% accurate however the derived
 # typeOf will be overwritten with more certain information
@@ -124,21 +139,51 @@ types_hash = {
 
 
 def create_nodes(nodes_hash):
+    failed_to_create = []
+    created = []
+    failed_to_find_or_create_parent = defaultdict(list)
+
     def _get_or_create_node(node_hash, nodes_hash):
         node_type, _ = NodeType.objects.get_or_create(name=node_hash['typeOf'])
-        node, _ = Node.objects.get_or_create(
-            name=node_hash['name'],
-            abbreviation=slugify(node_hash['abbreviation']),
-            typeOf=node_type
-        )
-        for parent in node_hash['parents']:
-            node.parents.add(
-                _get_or_create_node(
-                    nodes_hash[parent],
-                    nodes_hash))
-        return node
+        try:
+            # import pdb; pdb.set_trace()
+            node, _ = Node.objects.get_or_create(
+                name=node_hash['name'],
+                abbreviation=slugify(node_hash['abbreviation']),
+                typeOf=node_type
+            )
+            created.append({
+                'name': node_hash['name'],
+                'abbreviation': slugify(node_hash['abbreviation']),
+                'typeOf': node_type
+            })
+            for parent_id in node_hash['parents']:
+                parent = _get_or_create_node(nodes_hash[parent_id], nodes_hash)
+                if parent:
+                    node.parents.add(parent)
+                else:
+                    failed_to_find_or_create_parent[node_hash['name']].append(
+                        nodes_hash[parent_id])
+            return node
+        except:
+            failed_to_create.append({
+                'name': node_hash['name'],
+                'abbreviation': slugify(node_hash['abbreviation']),
+                'typeOf': node_type
+            })
+
     for key_or_abbr, node_hash in nodes_hash.items():
         _get_or_create_node(node_hash, nodes_hash)
+
+    print 'Created'
+    print created
+    print '^'
+    print 'Failed to find or create'
+    print failed_to_create
+    print '^'
+    print 'Failed to find or create parent'
+    print failed_to_find_or_create_parent
+    print '^'
 
 
 def build_up_org_hash(organisations):
@@ -188,7 +233,9 @@ def build_up_org_hash(organisations):
     print "No parents found:"
     print not_found_orgs
     print "Duplicate abbreviations - need handling:"
-    print abbrs_twice
+    # 6 problems found.
+    # import pdb; pdb.set_trace()
+    print [abbr for abbr, tx in abbrs_twice.items()]
     return org_hash
 
 
@@ -200,11 +247,12 @@ def slugify(string):
 
 
 def service_name(tx):
-    return "{}".format(tx['service']['name'])
+    return "{}".format(tx['service']['name'].encode('utf-8'))
 
 
 def transaction_name(tx):
-    return "{}: {}".format(tx['name'], tx['slug'])
+    return "{}: {}".format(tx['name'].encode('utf-8'),
+                           tx['slug'].encode('utf-8'))
 
 
 def add_type_to_parent(parent, typeOf):
@@ -226,7 +274,7 @@ def associate_parents(tx, org_hash, typeOf, rememberer):
     # try the name if no luck with the abbreviation
     elif slugify(tx[typeOf]['name']) in org_hash:
         parent = org_hash[slugify(tx[typeOf]['name'])]
-        parent = add_type_to_parent(parent)
+        parent = add_type_to_parent(parent, typeOf)
         org_hash[service_name(tx)]['parents'].append(
             slugify(parent['name']))
     # if there is nothing for name
@@ -238,16 +286,20 @@ def associate_parents(tx, org_hash, typeOf, rememberer):
 def build_up_node_hash(transactions, organisations):
 
     org_hash = build_up_org_hash(organisations)
+    more_than_one_tx = []
+    more_than_one_service = []
     """
     go through each transaction and build hash with names as keys
     """
     for tx in transactions:
         if transaction_name(tx) in org_hash:
-            raise Exception('More than one transaction with name {}'.format(
-                transaction_name(tx)))
+            more_than_one_tx.append(transaction_name(tx))
+            # raise Exception('More than one transaction with name {}'.format(
+            # transaction_name(tx)))
         if service_name(tx) in org_hash:
-            raise Exception('More than one service with name {}'.format(
-                service_name(tx)))
+            more_than_one_service.append(service_name(tx))
+            # raise Exception('More than one service with name {}'.format(
+            # service_name(tx)))
 
         org_hash[transaction_name(tx)] = {
             'name': transaction_name(tx),
@@ -261,6 +313,12 @@ def build_up_node_hash(transactions, organisations):
             'typeOf': 'service',
             'parents': []
         }
+    print 'more than one service'
+    print more_than_one_service
+    print '^'
+    print 'more than one tx'
+    print more_than_one_tx
+    print '^'
     """
     go through again
     """
