@@ -5,6 +5,7 @@ import sys
 import requests
 
 from django.db import IntegrityError
+from django.core.exceptions import ValidationError
 
 from .spreadsheets import SpreadsheetMunger
 
@@ -105,7 +106,7 @@ def import_dashboard(summaries, record, dry_run=False):
             try:
                 module.save()
                 log.debug('Added module: {}'.format(module.slug))
-            except IntegrityError:
+            except (IntegrityError, ValidationError):
                 log.debug('Module already exists: {}'.format(module.slug))
 
 
