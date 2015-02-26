@@ -57,7 +57,7 @@ def test_load_organisations(mock_load_data):
     assert_that(len(what_happened['link_to_parents_found']), equal_to(0))
     assert_that(
         len(what_happened['transactions_associated_with_dashboards']),
-        equal_to(0))
+        equal_to(1))
     assert_that(
         len(what_happened['transactions_not_associated_with_dashboards']),
         equal_to(0))

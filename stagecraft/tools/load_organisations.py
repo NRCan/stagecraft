@@ -12,6 +12,8 @@ from collections import defaultdict
 
 class WhatHappened:
     happenings = {
+        'total_before': [],
+        'total_after': [],
         'organisations': [],
         'transactions': [],
         'created_nodes': [],
@@ -33,9 +35,9 @@ WHAT_HAPPENED = WhatHappened()
 
 
 def load_organisations(username, password):
-    print 'Total before'
-    print len(Node.objects.all())
-    print '^'
+    Node.objects.all().delete()
+    NodeType.objects.all().delete()
+    WHAT_HAPPENED.this_happened('total_before', Node.objects.all())
     transactions_data, govuk_organisations = load_data(username, password)
 
     # remove any orgs from the list from GOV.UK where they have shut down
@@ -67,14 +69,16 @@ def load_organisations(username, password):
     print 'Successfully linked to dashboards'
     print finished
     print len(finished)
+    WHAT_HAPPENED.this_happened(
+        'transactions_associated_with_dashboards', finished)
     print '^'
     print 'Broken links'
     print bruk
     print len(bruk)
+    WHAT_HAPPENED.this_happened(
+        'transactions_not_associated_with_dashboards', bruk)
     print '^'
-    print 'Total now'
-    print len(Node.objects.all())
-    print '^'
+    WHAT_HAPPENED.this_happened('total_after', Node.objects.all())
     return WHAT_HAPPENED.happenings
 
 
@@ -183,8 +187,7 @@ def build_up_node_hash(transactions, organisations):
         ***THIS IS ASSUMING AGENCIES ARE ALWAYS JUNIOR TO DEPARTMENTS****
         """
         # if there is an agency then get the thing by abbreviation
-        print("this should be when agency things are blank, not just no objct")
-        if tx["agency"]:
+        if tx["agency"] and (tx['agency']['abbr'] or tx['agency']['name']):
             associate_parents(tx, org_hash, 'agency', no_agency_found)
         # if there is a department and no agency
         elif tx['department']:
@@ -483,10 +486,11 @@ def main():
         'transactions_associated_with_dashboards': 0,
         'transactions_not_associated_with_dashboards': 0
     }
-    for key, things in happened:
+    print happened
+    for key, things in happened.items():
         if not happenings[key] == len(things):
-            raise "{} should have been {} but was {}".format(
-                key, happenings[key], len(things))
+            raise Exception("{} should have been {} but was {}".format(
+                key, happenings[key], len(things)))
 
 
 if __name__ == '__main__':
