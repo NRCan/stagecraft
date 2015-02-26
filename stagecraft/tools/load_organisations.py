@@ -9,24 +9,27 @@ from stagecraft.apps.dashboards.models import Dashboard
 from collections import defaultdict
 # from spreadsheets import SpreadsheetMunger
 
-organisations = []
-transactions = []
 
-created_nodes = []
-existing_nodes = []
+class WhatHappened:
+    happenings = {
+        'organisations': [],
+        'transactions': [],
+        'created_nodes': [],
+        'existing_nodes': [],
+        'unable_to_find_or_create_nodes': [],
+        'unable_existing_nodes_diff_details': [],
+        'unable_data_error_nodes': [],
+        'link_to_parents_to_create': [],
+        'link_to_parents_not_found': [],
+        'link_to_parents_found': [],
+        'transactions_associated_with_dashboards': [],
+        'transactions_not_associated_with_dashboards': []
+    }
 
-# total orgs and transactions minus created and existing
-unable_to_find_or_create_nodes = []
-unable_existing_nodes_diff_details = []
-unable_data_error_nodes = []
+    def this_happened(self, key, value):
+        self.happenings[key] = value
 
-link_to_parents_to_create = []
-
-link_to_parents_not_found = []
-link_to_parents_found = []
-
-transactions_associated_with_dashboards = []
-transactions_not_associated_with_dashboards = []
+WHAT_HAPPENED = WhatHappened()
 
 
 def load_organisations(username, password):
@@ -39,6 +42,9 @@ def load_organisations(username, password):
     govuk_organisations = \
         [org for org in govuk_organisations if org[
             'details']['closed_at'] is None]
+
+    WHAT_HAPPENED.this_happened('organisations', govuk_organisations)
+    WHAT_HAPPENED.this_happened('transactions', transactions_data)
 
     nodes_hash = build_up_node_hash(transactions_data, govuk_organisations)
     # as this is recursive internally
@@ -69,20 +75,7 @@ def load_organisations(username, password):
     print 'Total now'
     print len(Node.objects.all())
     print '^'
-    return {
-        'organisations': organisations,
-        'transactions': transactions,
-        'created_nodes': created_nodes,
-        'existing_nodes': existing_nodes,
-        'unable_to_find_or_create_nodes': unable_to_find_or_create_nodes,
-        'unable_existing_nodes_diff_details': unable_existing_nodes_diff_details,  # noqa
-        'unable_data_error_nodes': unable_data_error_nodes,
-        'link_to_parents_to_create': link_to_parents_to_create,
-        'link_to_parents_not_found': link_to_parents_not_found,
-        'link_to_parents_found': link_to_parents_found,
-        'transactions_associated_with_dashboards': transactions_associated_with_dashboards,  # noqa
-        'transactions_not_associated_with_dashboards': transactions_not_associated_with_dashboards  # noqa
-    }
+    return WHAT_HAPPENED.happenings
 
 
 def load_data(username, password):
@@ -328,20 +321,23 @@ def create_nodes(nodes_hash):
                 abbreviation=slugify(node_hash['abbreviation']),
                 typeOf=node_type
             )
+            found_or_created = {
+                'name': node_hash['name'],
+                'abbreviation': slugify(node_hash['abbreviation']),
+                'typeOf': node_type
+            }
             if _:
-                created.append({
-                    'name': node_hash['name'],
-                    'abbreviation': slugify(node_hash['abbreviation']),
-                    'typeOf': node_type
-                })
-            else:
+                created.append(found_or_created)
+            elif found_or_created not in created:
                 existing.append({
                     'name': node_hash['name'],
                     'abbreviation': slugify(node_hash['abbreviation']),
                     'typeOf': node_type
                 })
             for parent_id in node_hash['parents']:
-                parent = _get_or_create_node(nodes_hash[parent_id], nodes_hash)
+                parent = _get_or_create_node(
+                    nodes_hash[parent_id],
+                    nodes_hash)
                 if parent:
                     node.parents.add(parent)
                 else:
@@ -366,18 +362,28 @@ def create_nodes(nodes_hash):
 
     print 'Created'
     print created
+    WHAT_HAPPENED.this_happened('created_nodes', created)
     print len(created)
     print '^'
     print 'Existing'
     print existing
+    WHAT_HAPPENED.this_happened('existing_nodes', existing)
     print len(existing)
     print '^'
     print 'Failed to find or create'
+    WHAT_HAPPENED.this_happened(
+        'unable_to_find_or_create_nodes', failed_to_create)
     print failed_to_create
     print len(failed_to_create)
     for error_type, error in errors.items():
         print error_type
         print len(error)
+        if error_type == django.db.utils.IntegrityError:
+            WHAT_HAPPENED.this_happened(
+                'unable_existing_nodes_diff_details', errors)
+        elif error_type == django.db.utils.DataError:
+            WHAT_HAPPENED.this_happened(
+                'unable_data_error_nodes', errors)
     print '^'
     print 'Failed to find or create parent'
     print failed_to_find_or_create_parent
@@ -462,7 +468,25 @@ def main():
         print "password (GOOGLE_PASSWORD)"
         sys.exit(1)
 
-    load_organisations(username, password)
+    happened = load_organisations(username, password)
+    happenings = {
+        'organisations': 894,
+        'transactions': 785,
+        'created_nodes': 1243,
+        'existing_nodes': 17184,
+        'unable_to_find_or_create_nodes': 0,
+        'unable_existing_nodes_diff_details': 0,
+        'unable_data_error_nodes': 0,
+        'link_to_parents_to_create': 0,
+        'link_to_parents_not_found': 0,
+        'link_to_parents_found': 0,
+        'transactions_associated_with_dashboards': 0,
+        'transactions_not_associated_with_dashboards': 0
+    }
+    for key, things in happened:
+        if not happenings[key] == len(things):
+            raise "{} should have been {} but was {}".format(
+                key, happenings[key], len(things))
 
 
 if __name__ == '__main__':

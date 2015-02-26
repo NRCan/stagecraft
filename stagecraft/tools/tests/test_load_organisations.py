@@ -43,9 +43,9 @@ def test_load_organisations(mock_load_data):
     dashboard = kpi_module.dashboard
 
     what_happened = load_organisations('foo', 'bar')
-    assert_that(len(what_happened['organisations']), equal_to(0))
-    assert_that(len(what_happened['transactions']), equal_to(0))
-    assert_that(len(what_happened['created_nodes']), equal_to(0))
+    assert_that(len(what_happened['organisations']), equal_to(3))
+    assert_that(len(what_happened['transactions']), equal_to(1))
+    assert_that(len(what_happened['created_nodes']), equal_to(5))
     assert_that(len(what_happened['existing_nodes']), equal_to(0))
     assert_that(
         len(what_happened['unable_to_find_or_create_nodes']), equal_to(0))
