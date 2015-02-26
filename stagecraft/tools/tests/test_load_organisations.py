@@ -42,7 +42,25 @@ def test_load_organisations(mock_load_data):
     )
     dashboard = kpi_module.dashboard
 
-    load_organisations('foo', 'bar')
+    what_happened = load_organisations('foo', 'bar')
+    assert_that(len(what_happened['organisations']), equal_to(0))
+    assert_that(len(what_happened['transactions']), equal_to(0))
+    assert_that(len(what_happened['created_nodes']), equal_to(0))
+    assert_that(len(what_happened['existing_nodes']), equal_to(0))
+    assert_that(
+        len(what_happened['unable_to_find_or_create_nodes']), equal_to(0))
+    assert_that(
+        len(what_happened['unable_existing_nodes_diff_details']), equal_to(0))
+    assert_that(len(what_happened['unable_data_error_nodes']), equal_to(0))
+    assert_that(len(what_happened['link_to_parents_to_create']), equal_to(0))
+    assert_that(len(what_happened['link_to_parents_not_found']), equal_to(0))
+    assert_that(len(what_happened['link_to_parents_found']), equal_to(0))
+    assert_that(
+        len(what_happened['transactions_associated_with_dashboards']),
+        equal_to(0))
+    assert_that(
+        len(what_happened['transactions_not_associated_with_dashboards']),
+        equal_to(0))
 
     dashboard = Dashboard.objects.get(id=dashboard.id)
 

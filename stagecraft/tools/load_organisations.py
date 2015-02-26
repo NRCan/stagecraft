@@ -9,21 +9,80 @@ from stagecraft.apps.dashboards.models import Dashboard
 from collections import defaultdict
 # from spreadsheets import SpreadsheetMunger
 
+organisations = []
+transactions = []
 
-def get_govuk_organisations():
-    def get_page(page):
-        response = requests.get(
-            'https://www.gov.uk/api/organisations?page={}'.format(page))
-        return response.json()
+created_nodes = []
+existing_nodes = []
 
-    first_page = get_page(1)
-    results = first_page['results']
+# total orgs and transactions minus created and existing
+unable_to_find_or_create_nodes = []
+unable_existing_nodes_diff_details = []
+unable_data_error_nodes = []
 
-    for page_num in range(2, first_page['pages'] + 1):
-        page = get_page(page_num)
-        results = results + page['results']
+link_to_parents_to_create = []
 
-    return results
+link_to_parents_not_found = []
+link_to_parents_found = []
+
+transactions_associated_with_dashboards = []
+transactions_not_associated_with_dashboards = []
+
+
+def load_organisations(username, password):
+    print 'Total before'
+    print len(Node.objects.all())
+    print '^'
+    transactions_data, govuk_organisations = load_data(username, password)
+
+    # remove any orgs from the list from GOV.UK where they have shut down
+    govuk_organisations = \
+        [org for org in govuk_organisations if org[
+            'details']['closed_at'] is None]
+
+    nodes_hash = build_up_node_hash(transactions_data, govuk_organisations)
+    # as this is recursive internally
+    # we could filter to start with the transactions only
+    # and then return these created and keyed off the name at the end
+    # however I don't fully understand the graph yet and there may be
+    # orphans building up in this way.
+    # instead ensure we create everything and then load transactions that
+    # have been created and associate based on the standard way of building
+    # up a transaction name
+    create_nodes(nodes_hash)
+
+    finished = []
+    bruk = []
+    for transaction in transactions_data:
+        if associate_with_dashboard(transaction):
+            finished.append(transaction)
+        else:
+            bruk.append(transaction)
+    print 'Successfully linked to dashboards'
+    print finished
+    print len(finished)
+    print '^'
+    print 'Broken links'
+    print bruk
+    print len(bruk)
+    print '^'
+    print 'Total now'
+    print len(Node.objects.all())
+    print '^'
+    return {
+        'organisations': organisations,
+        'transactions': transactions,
+        'created_nodes': created_nodes,
+        'existing_nodes': existing_nodes,
+        'unable_to_find_or_create_nodes': unable_to_find_or_create_nodes,
+        'unable_existing_nodes_diff_details': unable_existing_nodes_diff_details,  # noqa
+        'unable_data_error_nodes': unable_data_error_nodes,
+        'link_to_parents_to_create': link_to_parents_to_create,
+        'link_to_parents_not_found': link_to_parents_not_found,
+        'link_to_parents_found': link_to_parents_found,
+        'transactions_associated_with_dashboards': transactions_associated_with_dashboards,  # noqa
+        'transactions_not_associated_with_dashboards': transactions_not_associated_with_dashboards  # noqa
+    }
 
 
 def load_data(username, password):
@@ -60,157 +119,93 @@ def load_data(username, password):
     return transactions_data, govuk_organisations
 
 
-def load_organisations(username, password):
-    transactions_data, govuk_organisations = load_data(username, password)
+def get_govuk_organisations():
+    def get_page(page):
+        response = requests.get(
+            'https://www.gov.uk/api/organisations?page={}'.format(page))
+        return response.json()
 
-    # remove any orgs from the list from GOV.UK where they have shut down
-    govuk_organisations = \
-        [org for org in govuk_organisations if org[
-            'details']['closed_at'] is None]
+    first_page = get_page(1)
+    results = first_page['results']
 
-    # print transactions_data
-    # print govuk_organisations
+    for page_num in range(2, first_page['pages'] + 1):
+        page = get_page(page_num)
+        results = results + page['results']
 
-    nodes_hash = build_up_node_hash(transactions_data, govuk_organisations)
-    # as this is recursive internally
-    # we could filter to start with the transactions only
-    # and then return these created and keyed off the name at the end
-    # however I don't fully understand the graph yet and there may be
-    # orphans building up in this way.
-    # instead ensure we create everything and then load transactions that
-    # have been created and associate based on the standard way of building
-    # up a transaction name
-    create_nodes(nodes_hash)
+    return results
 
-    finished = []
-    bruk = []
-    for transaction in transactions_data:
-        if associate_with_dashboard(transaction):
-            finished.append(transaction)
+###
+
+
+def build_up_node_hash(transactions, organisations):
+    no_agency_found = []
+    no_dep_found = []
+    print 'transactions to create:'
+    print len(transactions)
+    print '^'
+    print 'organisations to create:'
+    print len(organisations)
+    print '^'
+    org_hash = build_up_org_hash(organisations)
+    more_than_one_tx = []
+    more_than_one_service = []
+    """
+    go through each transaction and build hash with names as keys
+    """
+    for tx in transactions:
+        if transaction_name(tx) in org_hash:
+            more_than_one_tx.append(transaction_name(tx))
+            # raise Exception('More than one transaction with name {}'.format(
+            # transaction_name(tx)))
+        if service_name(tx) in org_hash:
+            more_than_one_service.append(service_name(tx))
+            # raise Exception('More than one service with name {}'.format(
+            # service_name(tx)))
+
+        org_hash[transaction_name(tx)] = {
+            'name': transaction_name(tx),
+            'abbreviation': None,
+            'typeOf': 'transaction',
+            'parents': [service_name(tx)]
+        }
+        org_hash[service_name(tx)] = {
+            'name': service_name(tx),
+            'abbreviation': None,
+            'typeOf': 'service',
+            'parents': []
+        }
+    print 'more than one service'
+    print more_than_one_service
+    print len(more_than_one_service)
+    print '^'
+    print 'more than one tx'
+    print more_than_one_tx
+    print len(more_than_one_tx)
+    print '^'
+    """
+    go through again
+    """
+    for tx in transactions:
+        """
+        ***THIS IS ASSUMING AGENCIES ARE ALWAYS JUNIOR TO DEPARTMENTS****
+        """
+        # if there is an agency then get the thing by abbreviation
+        print("this should be when agency things are blank, not just no objct")
+        if tx["agency"]:
+            associate_parents(tx, org_hash, 'agency', no_agency_found)
+        # if there is a department and no agency
+        elif tx['department']:
+            # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
+            associate_parents(tx, org_hash, 'department', no_dep_found)
         else:
-            bruk.append(transaction)
-    print 'Successfully linked to dashboards'
-    print finished
-    print len(finished)
-    print '^'
-    print 'Broken links'
-    print bruk
-    print len(bruk)
-    print '^'
+            raise Exception("transaction with no department or agency!")
 
-
-def associate_with_dashboard(transaction_hash):
-    transaction = Node.objects.filter(
-        name=transaction_name(transaction_hash)).first()
-    dashboards = []
-    if transaction:
-        dashboards = Dashboard.objects.by_tx_id(transaction_hash['tx_id'])
-        for dashboard in dashboards:
-            # do this even if there is an existing dashboard
-            existing_org = dashboard.organisation
-            dashboard.organisation = transaction
-            dashboard.save()
-            # but say if the ancestors do not contain the old one.
-            if(existing_org and existing_org not in
-               [org for org in dashboard.organisation.get_ancestors()]):
-                print("existing org {} for dashboard {}"
-                      "not in new ancestors {}".format(
-                          existing_org.name,
-                          dashboard.title,
-                          [org for org
-                           in dashboard.organisation.get_ancestors()]))
-    print [dashboard for dashboard in dashboards]
-    return [dashboard for dashboard in dashboards]
-
-
-# These may not be 100% accurate however the derived
-# typeOf will be overwritten with more certain information
-# based on iterating through all tx rows in build_up_node_hash.
-# We use this to to get the full org graph with types even when orgs are
-# not associated with a transaction in txex. This is the best guess mapping.
-types_hash = {
-    "Advisory non-departmental public body": 'agency',
-    "Tribunal non-departmental public body": 'agency',
-    "Sub-organisation": 'agency',
-    "Executive agency": 'agency',
-    "Devolved administration": 'agency',
-    "Ministerial department": 'department',
-    "Non-ministerial department": 'department',
-    "Executive office": 'agency',
-    "Civil Service": 'agency',
-    "Other": 'agency',
-    "Executive non-departmental public body": 'agency',
-    "Independent monitoring body": 'agency',
-    "Public corporation": 'agency'
-}
-
-
-def create_nodes(nodes_hash):
-    failed_to_create = []
-    created = []
-    existing = []
-    failed_to_find_or_create_parent = defaultdict(list)
-    errors = defaultdict(list)
-
-    def _get_or_create_node(node_hash, nodes_hash):
-        node_type, _ = NodeType.objects.get_or_create(name=node_hash['typeOf'])
-        try:
-            node, _ = Node.objects.get_or_create(
-                name=node_hash['name'],
-                abbreviation=slugify(node_hash['abbreviation']),
-                typeOf=node_type
-            )
-            if _:
-                created.append({
-                    'name': node_hash['name'],
-                    'abbreviation': slugify(node_hash['abbreviation']),
-                    'typeOf': node_type
-                })
-            else:
-                existing.append({
-                    'name': node_hash['name'],
-                    'abbreviation': slugify(node_hash['abbreviation']),
-                    'typeOf': node_type
-                })
-            for parent_id in node_hash['parents']:
-                parent = _get_or_create_node(nodes_hash[parent_id], nodes_hash)
-                if parent:
-                    node.parents.add(parent)
-                else:
-                    failed_to_find_or_create_parent[node_hash['name']].append(
-                        nodes_hash[parent_id])
-            return node
-        except(django.db.utils.DataError,
-               django.db.utils.IntegrityError) as e:
-            errors[e.__class__].append(e)
-            failed_to_create.append({
-                'name': node_hash['name'],
-                'abbreviation': slugify(node_hash['abbreviation']),
-                'typeOf': node_type
-            })
-
-    for key_or_abbr, node_hash in nodes_hash.items():
-        _get_or_create_node(node_hash, nodes_hash)
-
-    print 'Created'
-    print created
-    print len(created)
-    print '^'
-    print 'Existing'
-    print existing
-    print len(existing)
-    print '^'
-    print 'Failed to find or create'
-    print failed_to_create
-    print len(failed_to_create)
-    for error_type, error in errors.items():
-        print error_type
-        print len(error)
-    print '^'
-    print 'Failed to find or create parent'
-    print failed_to_find_or_create_parent
-    print len(failed_to_find_or_create_parent)
-    print '^'
+    print "No department found:"
+    print no_dep_found
+    print len(no_dep_found)
+    print "No agency found:"
+    print len(no_agency_found)
+    return org_hash
 
 
 def build_up_org_hash(organisations):
@@ -273,34 +268,8 @@ def build_up_org_hash(organisations):
     print "No parents found:"
     print not_found_orgs
     print "Duplicate abbreviations - need handling:"
-    # 6 problems found.
     print [(abbr, tx) for abbr, tx in abbrs_twice.items()]
     return org_hash
-
-
-def slugify(string):
-    if string:
-        return string.lower()
-    else:
-        return string
-
-
-def service_name(tx):
-    return "{}".format(tx['service']['name'].encode('utf-8'))
-
-
-def transaction_name(tx):
-    return "{}: {}".format(tx['name'].encode('utf-8'),
-                           tx['slug'].encode('utf-8'))
-
-
-def add_type_to_parent(parent, typeOf):
-    parent['typeOf'] = typeOf
-    return parent
-
-
-no_agency_found = []
-no_dep_found = []
 
 
 def associate_parents(tx, org_hash, typeOf, rememberer):
@@ -341,74 +310,146 @@ def associate_parents(tx, org_hash, typeOf, rememberer):
     else:
         rememberer.append(tx[typeOf])
 
+###
 
-def build_up_node_hash(transactions, organisations):
 
-    print 'transactions to create:'
-    print len(transactions)
-    print '^'
-    print 'organisations to create:'
-    print len(organisations)
-    print '^'
-    org_hash = build_up_org_hash(organisations)
-    more_than_one_tx = []
-    more_than_one_service = []
-    """
-    go through each transaction and build hash with names as keys
-    """
-    for tx in transactions:
-        if transaction_name(tx) in org_hash:
-            more_than_one_tx.append(transaction_name(tx))
-            # raise Exception('More than one transaction with name {}'.format(
-            # transaction_name(tx)))
-        if service_name(tx) in org_hash:
-            more_than_one_service.append(service_name(tx))
-            # raise Exception('More than one service with name {}'.format(
-            # service_name(tx)))
+def create_nodes(nodes_hash):
+    failed_to_create = []
+    created = []
+    existing = []
+    failed_to_find_or_create_parent = defaultdict(list)
+    errors = defaultdict(list)
 
-        org_hash[transaction_name(tx)] = {
-            'name': transaction_name(tx),
-            'abbreviation': None,
-            'typeOf': 'transaction',
-            'parents': [service_name(tx)]
-        }
-        org_hash[service_name(tx)] = {
-            'name': service_name(tx),
-            'abbreviation': None,
-            'typeOf': 'service',
-            'parents': []
-        }
-    print 'more than one service'
-    print more_than_one_service
-    print len(more_than_one_service)
-    print '^'
-    print 'more than one tx'
-    print more_than_one_tx
-    print len(more_than_one_tx)
-    print '^'
-    """
-    go through again
-    """
-    for tx in transactions:
-        """
-        ***THIS IS ASSUMING AGENCIES ARE ALWAYS JUNIOR TO DEPARTMENTS****
-        """
-        # if there is an agency then get the thing by abbreviation
-        if tx["agency"]:
-            associate_parents(tx, org_hash, 'agency', no_agency_found)
-        # if there is a department and no agency
-        elif tx['department']:
-            # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
-            associate_parents(tx, org_hash, 'department', no_dep_found)
-        else:
-            raise Exception("transaction with no department or agency!")
+    def _get_or_create_node(node_hash, nodes_hash):
+        node_type, _ = NodeType.objects.get_or_create(name=node_hash['typeOf'])
+        try:
+            node, _ = Node.objects.get_or_create(
+                name=node_hash['name'],
+                abbreviation=slugify(node_hash['abbreviation']),
+                typeOf=node_type
+            )
+            if _:
+                created.append({
+                    'name': node_hash['name'],
+                    'abbreviation': slugify(node_hash['abbreviation']),
+                    'typeOf': node_type
+                })
+            else:
+                existing.append({
+                    'name': node_hash['name'],
+                    'abbreviation': slugify(node_hash['abbreviation']),
+                    'typeOf': node_type
+                })
+            for parent_id in node_hash['parents']:
+                parent = _get_or_create_node(nodes_hash[parent_id], nodes_hash)
+                if parent:
+                    node.parents.add(parent)
+                else:
+                    failed_to_find_or_create_parent[node_hash['name']].append(
+                        nodes_hash[parent_id])
+            return node
+        # data errors are too long fields
+        # integrity error are existing with slightly different stuff.
+        except(django.db.utils.DataError,
+               django.db.utils.IntegrityError) as e:
 
-    print "No department found:"
-    print no_dep_found
-    print len(no_dep_found)
-    print "No agency found:"
-    print len(no_agency_found)
-    return org_hash
+            print("overwrite when integrity error?")
+            errors[e.__class__].append(e)
+            failed_to_create.append({
+                'name': node_hash['name'],
+                'abbreviation': slugify(node_hash['abbreviation']),
+                'typeOf': node_type
+            })
+
+    for key_or_abbr, node_hash in nodes_hash.items():
+        _get_or_create_node(node_hash, nodes_hash)
+
+    print 'Created'
+    print created
+    print len(created)
+    print '^'
+    print 'Existing'
+    print existing
+    print len(existing)
+    print '^'
+    print 'Failed to find or create'
+    print failed_to_create
+    print len(failed_to_create)
+    for error_type, error in errors.items():
+        print error_type
+        print len(error)
+    print '^'
+    print 'Failed to find or create parent'
+    print failed_to_find_or_create_parent
+    print len(failed_to_find_or_create_parent)
+    print '^'
+
+
+def associate_with_dashboard(transaction_hash):
+    transaction = Node.objects.filter(
+        name=transaction_name(transaction_hash)).first()
+    dashboards = []
+    if transaction:
+        dashboards = Dashboard.objects.by_tx_id(transaction_hash['tx_id'])
+        for dashboard in dashboards:
+            # do this even if there is an existing dashboard
+            existing_org = dashboard.organisation
+            dashboard.organisation = transaction
+            dashboard.save()
+            # but say if the ancestors do not contain the old one.
+            if(existing_org and existing_org not in
+               [org for org in dashboard.organisation.get_ancestors()]):
+                print("existing org {} for dashboard {}"
+                      "not in new ancestors {}".format(
+                          existing_org.name,
+                          dashboard.title,
+                          [org for org
+                           in dashboard.organisation.get_ancestors()]))
+    print [dashboard for dashboard in dashboards]
+    return [dashboard for dashboard in dashboards]
+
+
+def slugify(string):
+    if string:
+        return string.lower()
+    else:
+        return string
+
+
+def service_name(tx):
+    return "{}".format(tx['service']['name'].encode('utf-8'))
+
+
+def transaction_name(tx):
+    return "{}: {}".format(tx['name'].encode('utf-8'),
+                           tx['slug'].encode('utf-8'))
+
+
+def add_type_to_parent(parent, typeOf):
+    parent['typeOf'] = typeOf
+    return parent
+
+
+# These may not be 100% accurate however the derived
+# typeOf will be overwritten with more certain information
+# based on iterating through all tx rows in build_up_node_hash.
+# We use this to to get the full org graph with types even when orgs are
+# not associated with a transaction in txex. This is the best guess mapping.
+types_hash = {
+    "Advisory non-departmental public body": 'agency',
+    "Tribunal non-departmental public body": 'agency',
+    "Sub-organisation": 'agency',
+    "Executive agency": 'agency',
+    "Devolved administration": 'agency',
+    "Ministerial department": 'department',
+    "Non-ministerial department": 'department',
+    "Executive office": 'agency',
+    "Civil Service": 'agency',
+    "Other": 'agency',
+    "Executive non-departmental public body": 'agency',
+    "Independent monitoring body": 'agency',
+    "Public corporation": 'agency'
+}
 
 
 def main():
