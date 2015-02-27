@@ -13,7 +13,10 @@ from stagecraft.libs.authorization.http import permission_required
 from stagecraft.libs.validation.validation import is_uuid
 
 from ..models import Dashboard, Module, ModuleType
+import time
 
+import logging
+logger = logging.getLogger(__name__)
 
 def json_response(obj):
     return HttpResponse(
@@ -174,6 +177,14 @@ def list_types(request):
     serialized = [module_type.serialize() for module_type in module_types]
 
     return json_response(serialized)
+
+
+@never_cache
+def slow(request):
+    logger.info('before slow request')
+    time.sleep(3)
+    logger.info('end of slow request')
+    return HttpResponse('slow')
 
 
 @permission_required('dashboard')
