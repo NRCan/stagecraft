@@ -63,7 +63,7 @@ class LoadOrganisationsTestCase(TestCase):
             dashboard.organisation.name,
             equal_to(
                 "Registrations to use online training and resources on"
-                " workplace relations: registrations"))
+                " workplace relations"))
         assert_that(
             dashboard.organisation.typeOf.name,
             equal_to("transaction"))
@@ -119,13 +119,17 @@ class LoadOrganisationsTestCase(TestCase):
         assert_that(
             len(what_happened['unable_existing_nodes_diff_details']),
             equal_to(0))
+        assert_that(
+            len(what_happened['unable_existing_nodes_diff_details_msgs']),
+            equal_to(0))
         assert_that(len(what_happened['unable_data_error_nodes']), equal_to(0))
+        assert_that(
+            len(what_happened['unable_data_error_nodes_msgs']), equal_to(0))
         assert_that(len(what_happened['duplicate_services']), equal_to(0))
         assert_that(len(what_happened['duplicate_transactions']), equal_to(0))
         assert_that(len(
             what_happened['duplicate_dep_or_agency_abbreviations']),
             equal_to(0))
-        assert_that(len(what_happened['no_org_for_abbreviation']), equal_to(0))
         assert_that(
             len(what_happened['link_to_parents_not_found']),
             equal_to(0))
@@ -140,24 +144,26 @@ class LoadOrganisationsTestCase(TestCase):
         what_happened = load_organisations('foo', 'bar')
         assert_that(len(what_happened['dashboards_at_start']), equal_to(1))
         assert_that(len(what_happened['dashboards_at_end']), equal_to(1))
-        assert_that(len(what_happened['total_nodes_before']), equal_to(5))
+        assert_that(len(what_happened['total_nodes_before']), equal_to(0))
         assert_that(len(what_happened['total_nodes_after']), equal_to(5))
         assert_that(len(what_happened['organisations']), equal_to(3))
         assert_that(len(what_happened['transactions']), equal_to(1))
-        assert_that(len(what_happened['created_nodes']), equal_to(0))
-        assert_that(len(what_happened['existing_nodes']), equal_to(5))
+        assert_that(len(what_happened['created_nodes']), equal_to(5))
+        assert_that(len(what_happened['existing_nodes']), equal_to(0))
         assert_that(
             len(what_happened['unable_to_find_or_create_nodes']), equal_to(0))
         assert_that(
-            len(what_happened['unable_existing_nodes_diff_details']),
+            len(what_happened['unable_existing_nodes_diff_details_msgs']),
             equal_to(0))
+        assert_that(len(what_happened['unable_data_error_nodes']), equal_to(0))
+        assert_that(
+            len(what_happened['unable_data_error_nodes_msgs']), equal_to(0))
         assert_that(len(what_happened['unable_data_error_nodes']), equal_to(0))
         assert_that(len(what_happened['duplicate_services']), equal_to(0))
         assert_that(len(what_happened['duplicate_transactions']), equal_to(0))
         assert_that(len(
             what_happened['duplicate_dep_or_agency_abbreviations']),
             equal_to(0))
-        assert_that(len(what_happened['no_org_for_abbreviation']), equal_to(0))
         assert_that(
             len(what_happened['link_to_parents_not_found']),
             equal_to(0))
@@ -173,9 +179,9 @@ class LoadOrganisationsTestCase(TestCase):
 # it is then used to actually create and update things in the database.
 expected_result = {
     "Registrations to use online training and resources"
-    " on workplace relations: registrations": {
+    " on workplace relations": {
         'name': "Registrations to use online training and resources"
-                " on workplace relations: registrations",
+                " on workplace relations",
         'abbreviation': None,
         'typeOf': 'transaction',
         'parents': ['Training and resources on workplace relations']
@@ -214,7 +220,7 @@ def test_create_nodes():
 
     transaction = Node.objects.get(
         name="Registrations to use online training and resources on"
-             " workplace relations: registrations")
+             " workplace relations")
     tx_ancestors = [
         ancestor.name for ancestor in transaction.get_ancestors()]
     assert_that(tx_ancestors, equal_to(
@@ -223,7 +229,7 @@ def test_create_nodes():
          "Crown Prosecution Service",
          "Training and resources on workplace relations",
          "Registrations to use online training and resources on"
-         " workplace relations: registrations"]))
+         " workplace relations"]))
 
     service = Node.objects.get(
         name="Training and resources on"

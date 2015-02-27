@@ -5,7 +5,6 @@ import requests
 import sys
 from stagecraft.apps.organisation.models import Node, NodeType
 from stagecraft.apps.dashboards.models import Dashboard
-from django.db.models import Q
 
 from collections import defaultdict
 # from spreadsheets import SpreadsheetMunger
@@ -23,11 +22,12 @@ class WhatHappened:
         'existing_nodes': [],
         'unable_to_find_or_create_nodes': [],
         'unable_existing_nodes_diff_details': [],
+        'unable_existing_nodes_diff_details_msgs': [],
         'unable_data_error_nodes': [],
+        'unable_data_error_nodes_msgs': [],
         'duplicate_services': [],
         'duplicate_transactions': [],
         'duplicate_dep_or_agency_abbreviations': [],
-        'no_org_for_abbreviation': [],
         'link_to_parents_not_found': [],
         'link_to_parents_found': [],
         'transactions_associated_with_dashboards': [],
@@ -40,24 +40,19 @@ class WhatHappened:
 WHAT_HAPPENED = WhatHappened()
 
 
-def associate_all_dashboards_with_temporary_organisation():
-    node_type, _ = NodeType.objects.get_or_create(name='agency')
-    temp_node, _ = Node.objects.get_or_create(
-        name='temp node',
-        abbreviation='temp',
-        typeOf=node_type
-    )
+def remove_all_dashboard_references_to_orgs():
     for dashboard in Dashboard.objects.all():
-        dashboard.organisation = temp_node
+        dashboard.organisation = None
         dashboard.save()
-    Node.objects.filter(~Q(name='temp node')).delete()
+    Node.objects.all().delete()
 
 
 def load_organisations(username, password):
     WHAT_HAPPENED.this_happened(
         'dashboards_at_start',
         [dashboard for dashboard in Dashboard.objects.all()])
-    # associate_all_dashboards_with_temporary_organisation()
+    # we only care about transactions, everything else loses their org
+    remove_all_dashboard_references_to_orgs()
     WHAT_HAPPENED.this_happened(
         'total_nodes_before', [node for node in Node.objects.all()])
     transactions_data, govuk_organisations = load_data(username, password)
@@ -305,53 +300,9 @@ def associate_parents(tx, org_hash, typeOf):
 ###
 
 
-def _handle_integrity_error(node_hash, node_type, updated_nodes):
-    intended_attributes = {
-        'name': node_hash['name'],
-        'abbreviation': slugify(node_hash['abbreviation']),
-        'typeOf': node_type.name
-    }
-    node = Node.objects.filter(
-        name=node_hash['name']
-    ).first()
-    overwrite = True
-    if node:
-        node.abbreviation = slugify(node_hash['abbreviation'])
-    else:
-        node = Node.objects.get(
-            abbreviation=slugify(node_hash['abbreviation'])
-        )
-        print 'Attempting to create node {} but node {} exists'.format(
-            intended_attributes,
-            {
-                'name': node.name,
-                'abbreviation': node.abbreviation,
-                'typeOf': node.typeOf.name
-            })
-        print "Type 'yes' to overwrite and 'no' to leave"
-        while True:
-            line = sys.stdin.readline().strip()
-            if line == 'yes':
-                node.name = node_hash['name']
-                break
-            elif line == 'no':
-                overwrite = False
-                break
-            else:
-                print 'please answer either yes or no'
-
-    if overwrite:
-        node.typeOf = node_type
-        node.save()
-
-        updated_nodes.append(intended_attributes)
-    return node
-
-
 def create_nodes(nodes_hash):
     failed_to_create = []
     created = []
-    updated_nodes = []
     existing = []
     failed_to_find_or_create_parent = defaultdict(list)
     errors = defaultdict(list)
@@ -359,17 +310,16 @@ def create_nodes(nodes_hash):
     def _get_or_create_node(node_hash, nodes_hash):
         node_type, _ = NodeType.objects.get_or_create(name=node_hash['typeOf'])
         try:
+            defaults = {
+                'typeOf': node_type
+            }
             if slugify(node_hash['abbreviation']):
-                node, _ = Node.objects.get_or_create(
-                    name=node_hash['name'],
-                    abbreviation=slugify(node_hash['abbreviation']),
-                    typeOf=node_type
-                )
-            else:
-                node, _ = Node.objects.get_or_create(
-                    name=node_hash['name'],
-                    typeOf=node_type
-                )
+                defaults['abbreviation'] = slugify(node_hash['abbreviation'])
+            node, _ = Node.objects.get_or_create(
+                name=node_hash['name'],
+                defaults=defaults
+            )
+
             found_or_created = {
                 'name': node_hash['name'],
                 'abbreviation': slugify(node_hash['abbreviation']),
@@ -385,11 +335,8 @@ def create_nodes(nodes_hash):
                     'typeOf': node_type
                 })
         # integrity error are existing with slightly different stuff.
-        except(django.db.utils.IntegrityError) as e:
-            # overwrite these
-            node = _handle_integrity_error(
-                node_hash, node_type, updated_nodes)
-        except(django.db.utils.DataError) as e:
+        # data errors are too long field
+        except(django.db.utils.DataError, django.db.utils.IntegrityError) as e:
 
             errors[e.__class__].append(e)
             failed_to_create.append({
@@ -416,13 +363,19 @@ def create_nodes(nodes_hash):
     WHAT_HAPPENED.this_happened('existing_nodes', existing)
     WHAT_HAPPENED.this_happened(
         'unable_to_find_or_create_nodes', failed_to_create)
-    for error_type, error in errors.items():
+    for error_type, error_instances in errors.items():
         if error_type == django.db.utils.IntegrityError:
             WHAT_HAPPENED.this_happened(
-                'unable_existing_nodes_diff_details', errors)
+                'unable_existing_nodes_diff_details', error_instances)
+            msgs = set([error.message for error in error_instances])
+            WHAT_HAPPENED.this_happened(
+                'unable_existing_nodes_diff_details_msgs', msgs)
         elif error_type == django.db.utils.DataError:
             WHAT_HAPPENED.this_happened(
-                'unable_data_error_nodes', errors)
+                'unable_data_error_nodes', error_instances)
+            msgs = set([error.message for error in error_instances])
+            WHAT_HAPPENED.this_happened(
+                'unable_data_error_nodes_msgs', msgs)
 
 
 def associate_with_dashboard(transaction_hash):
@@ -430,6 +383,7 @@ def associate_with_dashboard(transaction_hash):
         name=transaction_name(transaction_hash)).first()
     dashboards = []
     if transaction:
+        # switch to get if not published
         dashboards = Dashboard.objects.by_tx_id(transaction_hash['tx_id'])
         for dashboard in dashboards:
             # do this even if there is an existing dashboard
@@ -456,12 +410,11 @@ def slugify(string):
 
 
 def service_name(tx):
-    return "{}".format(tx['service']['name'].encode('utf-8'))
+    return tx['service']['name'].encode('utf-8')
 
 
 def transaction_name(tx):
-    return "{}: {}".format(tx['name'].encode('utf-8'),
-                           tx['slug'].encode('utf-8'))
+    return tx['name'].encode('utf-8')
 
 
 def add_type_to_parent(parent, typeOf):
@@ -506,13 +459,15 @@ def main():
         'dashboards_at_start': 865,
         'dashboards_at_end': 865,
         'total_nodes_before': 1,
-        'total_nodes_after':  0,
+        'total_nodes_after':  1491,
         'organisations': 894,
         'transactions': 785,
         'created_nodes': 1243,
         'existing_nodes': 17184,
         'unable_to_find_or_create_nodes': 0,
         'unable_existing_nodes_diff_details': 0,
+        'unable_to_find_or_create_nodes_msgs': 0,
+        'unable_existing_nodes_diff_details_msgs': 0,
         'unable_data_error_nodes': 0,
         'duplicate_services': 0,
         'duplicate_transactions': 0,
