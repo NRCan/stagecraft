@@ -43,6 +43,10 @@ def test_load_organisations(mock_load_data):
     dashboard = kpi_module.dashboard
 
     what_happened = load_organisations('foo', 'bar')
+    assert_that(len(what_happened['dashboards_at_start']), equal_to(1))
+    assert_that(len(what_happened['dashboards_at_end']), equal_to(1))
+    assert_that(len(what_happened['total_before']), equal_to(1))
+    assert_that(len(what_happened['total_after']), equal_to(4))
     assert_that(len(what_happened['organisations']), equal_to(3))
     assert_that(len(what_happened['transactions']), equal_to(1))
     assert_that(len(what_happened['created_nodes']), equal_to(5))

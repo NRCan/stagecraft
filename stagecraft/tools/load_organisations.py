@@ -5,6 +5,7 @@ import requests
 import sys
 from stagecraft.apps.organisation.models import Node, NodeType
 from stagecraft.apps.dashboards.models import Dashboard
+from django.db.models import Q
 
 from collections import defaultdict
 # from spreadsheets import SpreadsheetMunger
@@ -12,8 +13,10 @@ from collections import defaultdict
 
 class WhatHappened:
     happenings = {
-        'total_before': [],
-        'total_after': [],
+        'dashboards_at_start': [],
+        'dashboards_at_end': [],
+        'total_nodes_before': [],
+        'total_nodes_after': [],
         'organisations': [],
         'transactions': [],
         'created_nodes': [],
@@ -21,7 +24,10 @@ class WhatHappened:
         'unable_to_find_or_create_nodes': [],
         'unable_existing_nodes_diff_details': [],
         'unable_data_error_nodes': [],
-        'link_to_parents_to_create': [],
+        'duplicate_services': [],
+        'duplicate_transactions': [],
+        'duplicate_dep_or_agency_abbreviations': [],
+        'no_org_for_abbreviation': [],
         'link_to_parents_not_found': [],
         'link_to_parents_found': [],
         'transactions_associated_with_dashboards': [],
@@ -34,10 +40,26 @@ class WhatHappened:
 WHAT_HAPPENED = WhatHappened()
 
 
+def associate_all_dashboards_with_temporary_organisation():
+    node_type, _ = NodeType.objects.get_or_create(name='agency')
+    temp_node, _ = Node.objects.get_or_create(
+        name='temp node',
+        abbreviation='temp',
+        typeOf=node_type
+    )
+    for dashboard in Dashboard.objects.all():
+        dashboard.organisation = temp_node
+        dashboard.save()
+    Node.objects.filter(~Q(name='temp node')).delete()
+
+
 def load_organisations(username, password):
-    Node.objects.all().delete()
-    NodeType.objects.all().delete()
-    WHAT_HAPPENED.this_happened('total_before', Node.objects.all())
+    WHAT_HAPPENED.this_happened(
+        'dashboards_at_start',
+        [dashboard for dashboard in Dashboard.objects.all()])
+    associate_all_dashboards_with_temporary_organisation()
+    WHAT_HAPPENED.this_happened(
+        'total_nodes_before', [node for node in Node.objects.all()])
     transactions_data, govuk_organisations = load_data(username, password)
 
     # remove any orgs from the list from GOV.UK where they have shut down
@@ -66,19 +88,16 @@ def load_organisations(username, password):
             finished.append(transaction)
         else:
             bruk.append(transaction)
-    print 'Successfully linked to dashboards'
-    print finished
-    print len(finished)
     WHAT_HAPPENED.this_happened(
         'transactions_associated_with_dashboards', finished)
-    print '^'
-    print 'Broken links'
-    print bruk
-    print len(bruk)
     WHAT_HAPPENED.this_happened(
         'transactions_not_associated_with_dashboards', bruk)
-    print '^'
-    WHAT_HAPPENED.this_happened('total_after', Node.objects.all())
+    WHAT_HAPPENED.this_happened(
+        'total_nodes_after',
+        [node for nodes in Node.objects.all()])
+    WHAT_HAPPENED.this_happened(
+        'dashboards_at_end',
+        [dashboard for dashboards in Dashboard.objects.all()])
     return WHAT_HAPPENED.happenings
 
 
@@ -135,14 +154,6 @@ def get_govuk_organisations():
 
 
 def build_up_node_hash(transactions, organisations):
-    no_agency_found = []
-    no_dep_found = []
-    print 'transactions to create:'
-    print len(transactions)
-    print '^'
-    print 'organisations to create:'
-    print len(organisations)
-    print '^'
     org_hash = build_up_org_hash(organisations)
     more_than_one_tx = []
     more_than_one_service = []
@@ -171,36 +182,34 @@ def build_up_node_hash(transactions, organisations):
             'typeOf': 'service',
             'parents': []
         }
-    print 'more than one service'
-    print more_than_one_service
-    print len(more_than_one_service)
-    print '^'
-    print 'more than one tx'
-    print more_than_one_tx
-    print len(more_than_one_tx)
-    print '^'
+    WHAT_HAPPENED.this_happened('duplicate_services', more_than_one_service)
+    WHAT_HAPPENED.this_happened('duplicate_transactions', more_than_one_tx)
     """
     go through again
     """
+    successfully_linked = []
+    failed_to_link = []
     for tx in transactions:
         """
         ***THIS IS ASSUMING AGENCIES ARE ALWAYS JUNIOR TO DEPARTMENTS****
         """
         # if there is an agency then get the thing by abbreviation
         if tx["agency"] and (tx['agency']['abbr'] or tx['agency']['name']):
-            associate_parents(tx, org_hash, 'agency', no_agency_found)
+            success, link = associate_parents(
+                tx, org_hash, 'agency')
         # if there is a department and no agency
         elif tx['department']:
             # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
-            associate_parents(tx, org_hash, 'department', no_dep_found)
+            success, link = associate_parents(
+                tx, org_hash, 'department')
         else:
             raise Exception("transaction with no department or agency!")
-
-    print "No department found:"
-    print no_dep_found
-    print len(no_dep_found)
-    print "No agency found:"
-    print len(no_agency_found)
+        if success:
+            successfully_linked.append(link)
+        else:
+            failed_to_link.append(link)
+    WHAT_HAPPENED.this_happened('link_to_parents_found', successfully_linked)
+    WHAT_HAPPENED.this_happened('link_to_parents_not_found', failed_to_link)
     return org_hash
 
 
@@ -218,19 +227,14 @@ def build_up_org_hash(organisations):
             'parents': []
         }
 
-    not_found_orgs = defaultdict(list)
-
     # assign parents
     for org in organisations:
         for parent in org['parent_organisations']:
-            if org_id_hash[parent['id']]:
-                abbr = org_id_hash[parent['id']]['abbreviation']
-                if abbr:
-                    parent_abbreviation = abbr
-                elif org_id_hash[parent['id']]['name']:
-                    parent_abbreviation = org_id_hash[parent['id']]['name']
-            else:
-                not_found_orgs[org_id_hash[parent['id']]['abbreviation']] = org
+            abbr = org_id_hash[parent['id']]['abbreviation']
+            if abbr:
+                parent_abbreviation = abbr
+            elif org_id_hash[parent['id']]['name']:
+                parent_abbreviation = org_id_hash[parent['id']]['name']
 
             org_id_hash[org['id']]['parents'].append(
                 slugify(parent_abbreviation))
@@ -249,7 +253,7 @@ def build_up_org_hash(organisations):
                     org_hash[slugify(org['abbreviation'])])
             abbrs_twice[slugify(org['abbreviation'])].append(
                 org)
-            print 'Using name as key for:'
+            print 'Using name as key for second with abbr:'
             print org
             org_hash[slugify(org['name'])] = org
         else:
@@ -258,17 +262,15 @@ def build_up_org_hash(organisations):
             if slugify(org['abbreviation']):
                 org_hash[slugify(org['abbreviation'])] = org
             else:
-                print org
                 org_hash[slugify(org['name'])] = org
 
-    print "No parents found:"
-    print not_found_orgs
-    print "Duplicate abbreviations - need handling:"
-    print [(abbr, tx) for abbr, tx in abbrs_twice.items()]
+    WHAT_HAPPENED.this_happened(
+        'duplicate_dep_or_agency_abbreviations',
+        [(abbr, tx) for abbr, tx in abbrs_twice.items()])
     return org_hash
 
 
-def associate_parents(tx, org_hash, typeOf, rememberer):
+def associate_parents(tx, org_hash, typeOf):
     # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
     if slugify(tx[typeOf]['abbr']) in org_hash:
         parent = org_hash[slugify(tx[typeOf]['abbr'])]
@@ -277,14 +279,11 @@ def associate_parents(tx, org_hash, typeOf, rememberer):
         if slugify(parent['abbreviation']):
             org_hash[service_name(tx)]['parents'].append(
                 slugify(parent['abbreviation']))
+            return (True, (tx[typeOf], parent))
         else:
-            # This needs to be better and make clear
             # the parent has no name or abbrevation
             # how did it get his way?
-            print("This needs to be better and make clear"
-                  "the parent has no name or abbrevation"
-                  "how did it get his way?")
-            rememberer.append(('service', org_hash[service_name(tx)]))
+            return (False, ('blank or null abbr', tx[typeOf], parent))
     # try the name if no luck with the abbreviation
     elif slugify(tx[typeOf]['name']) in org_hash:
         parent = org_hash[slugify(tx[typeOf]['name'])]
@@ -293,18 +292,15 @@ def associate_parents(tx, org_hash, typeOf, rememberer):
         if slugify(parent['name']):
             org_hash[service_name(tx)]['parents'].append(
                 slugify(parent['name']))
+            return (True, (tx[typeOf], parent))
         else:
-            # This needs to be better and make clear
             # the parent has no name or abbrevation
             # how did it get his way?
-            print("This needs to be better and make clear"
-                  "the parent has no name or abbrevation"
-                  "how did it get his way?")
-            rememberer.append(('service', org_hash[service_name(tx)]))
+            return (False, ('blank or null name', tx[typeOf], parent))
     # if there is nothing for name
     # or abbreviation then add to not found
     else:
-        rememberer.append(tx[typeOf])
+        return (False, (tx[typeOf], None))
 
 ###
 
@@ -352,7 +348,6 @@ def create_nodes(nodes_hash):
         except(django.db.utils.DataError,
                django.db.utils.IntegrityError) as e:
 
-            print("overwrite when integrity error?")
             errors[e.__class__].append(e)
             failed_to_create.append({
                 'name': node_hash['name'],
@@ -363,35 +358,17 @@ def create_nodes(nodes_hash):
     for key_or_abbr, node_hash in nodes_hash.items():
         _get_or_create_node(node_hash, nodes_hash)
 
-    print 'Created'
-    print created
     WHAT_HAPPENED.this_happened('created_nodes', created)
-    print len(created)
-    print '^'
-    print 'Existing'
-    print existing
     WHAT_HAPPENED.this_happened('existing_nodes', existing)
-    print len(existing)
-    print '^'
-    print 'Failed to find or create'
     WHAT_HAPPENED.this_happened(
         'unable_to_find_or_create_nodes', failed_to_create)
-    print failed_to_create
-    print len(failed_to_create)
     for error_type, error in errors.items():
-        print error_type
-        print len(error)
         if error_type == django.db.utils.IntegrityError:
             WHAT_HAPPENED.this_happened(
                 'unable_existing_nodes_diff_details', errors)
         elif error_type == django.db.utils.DataError:
             WHAT_HAPPENED.this_happened(
                 'unable_data_error_nodes', errors)
-    print '^'
-    print 'Failed to find or create parent'
-    print failed_to_find_or_create_parent
-    print len(failed_to_find_or_create_parent)
-    print '^'
 
 
 def associate_with_dashboard(transaction_hash):
@@ -412,9 +389,8 @@ def associate_with_dashboard(transaction_hash):
                       "not in new ancestors {}".format(
                           existing_org.name,
                           dashboard.title,
-                          [org for org
+                          [org.name for org
                            in dashboard.organisation.get_ancestors()]))
-    print [dashboard for dashboard in dashboards]
     return [dashboard for dashboard in dashboards]
 
 
@@ -472,7 +448,11 @@ def main():
         sys.exit(1)
 
     happened = load_organisations(username, password)
-    happenings = {
+    expected_happenings = {
+        'dashboards_at_start': 865,
+        'dashboards_at_end': 865,
+        'total_nodes_before': 1,
+        'total_nodes_after':  0,
         'organisations': 894,
         'transactions': 785,
         'created_nodes': 1243,
@@ -480,17 +460,23 @@ def main():
         'unable_to_find_or_create_nodes': 0,
         'unable_existing_nodes_diff_details': 0,
         'unable_data_error_nodes': 0,
+        'duplicate_services': 0,
+        'duplicate_transactions': 0,
         'link_to_parents_to_create': 0,
         'link_to_parents_not_found': 0,
         'link_to_parents_found': 0,
         'transactions_associated_with_dashboards': 0,
         'transactions_not_associated_with_dashboards': 0
     }
-    print happened
     for key, things in happened.items():
-        if not happenings[key] == len(things):
+        print key
+        print len(things)
+        print '^'
+
+    for key, things in happened.items():
+        if not expected_happenings[key] == len(things):
             raise Exception("{} should have been {} but was {}".format(
-                key, happenings[key], len(things)))
+                key, expected_happenings[key], len(things)))
 
 
 if __name__ == '__main__':
