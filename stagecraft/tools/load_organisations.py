@@ -456,26 +456,25 @@ def main():
 
     happened = load_organisations(username, password)
     expected_happenings = {
-        'dashboards_at_start': 865,
-        'dashboards_at_end': 865,
-        'total_nodes_before': 1,
-        'total_nodes_after':  1491,
+        'dashboards_at_start': 872,
+        'dashboards_at_end': 872,
+        'total_nodes_before': 0,
+        'total_nodes_after':  1467,
         'organisations': 894,
         'transactions': 785,
-        'created_nodes': 1243,
-        'existing_nodes': 17184,
-        'unable_to_find_or_create_nodes': 0,
-        'unable_existing_nodes_diff_details': 0,
-        'unable_to_find_or_create_nodes_msgs': 0,
-        'unable_existing_nodes_diff_details_msgs': 0,
-        'unable_data_error_nodes': 0,
-        'duplicate_services': 0,
-        'duplicate_transactions': 0,
-        'link_to_parents_to_create': 0,
-        'link_to_parents_not_found': 0,
-        'link_to_parents_found': 0,
-        'transactions_associated_with_dashboards': 0,
-        'transactions_not_associated_with_dashboards': 0
+        'created_nodes': 1467,
+        'existing_nodes': 7,
+        'unable_to_find_or_create_nodes': 221,
+        'unable_existing_nodes_diff_details': 3,
+        'unable_existing_nodes_diff_details_msgs': 3,
+        'unable_data_error_nodes': 218,
+        'unable_data_error_nodes_msgs': 5,
+        'duplicate_services': 347,
+        'duplicate_transactions': 547,
+        'link_to_parents_not_found': 175,
+        'link_to_parents_found': 610,
+        'transactions_associated_with_dashboards': 93,
+        'transactions_not_associated_with_dashboards': 692
     }
     for key, things in happened.items():
         print key
