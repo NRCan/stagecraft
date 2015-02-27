@@ -57,7 +57,7 @@ def load_organisations(username, password):
     WHAT_HAPPENED.this_happened(
         'dashboards_at_start',
         [dashboard for dashboard in Dashboard.objects.all()])
-    associate_all_dashboards_with_temporary_organisation()
+    # associate_all_dashboards_with_temporary_organisation()
     WHAT_HAPPENED.this_happened(
         'total_nodes_before', [node for node in Node.objects.all()])
     transactions_data, govuk_organisations = load_data(username, password)
@@ -94,7 +94,7 @@ def load_organisations(username, password):
         'transactions_not_associated_with_dashboards', bruk)
     WHAT_HAPPENED.this_happened(
         'total_nodes_after',
-        [node for nodes in Node.objects.all()])
+        [node for node in Node.objects.all()])
     WHAT_HAPPENED.this_happened(
         'dashboards_at_end',
         [dashboard for dashboards in Dashboard.objects.all()])
@@ -305,9 +305,53 @@ def associate_parents(tx, org_hash, typeOf):
 ###
 
 
+def _handle_integrity_error(node_hash, node_type, updated_nodes):
+    intended_attributes = {
+        'name': node_hash['name'],
+        'abbreviation': slugify(node_hash['abbreviation']),
+        'typeOf': node_type.name
+    }
+    node = Node.objects.filter(
+        name=node_hash['name']
+    ).first()
+    overwrite = True
+    if node:
+        node.abbreviation = slugify(node_hash['abbreviation'])
+    else:
+        node = Node.objects.get(
+            abbreviation=slugify(node_hash['abbreviation'])
+        )
+        print 'Attempting to create node {} but node {} exists'.format(
+            intended_attributes,
+            {
+                'name': node.name,
+                'abbreviation': node.abbreviation,
+                'typeOf': node.typeOf.name
+            })
+        print "Type 'yes' to overwrite and 'no' to leave"
+        while True:
+            line = sys.stdin.readline().strip()
+            if line == 'yes':
+                node.name = node_hash['name']
+                break
+            elif line == 'no':
+                overwrite = False
+                break
+            else:
+                print 'please answer either yes or no'
+
+    if overwrite:
+        node.typeOf = node_type
+        node.save()
+
+        updated_nodes.append(intended_attributes)
+    return node
+
+
 def create_nodes(nodes_hash):
     failed_to_create = []
     created = []
+    updated_nodes = []
     existing = []
     failed_to_find_or_create_parent = defaultdict(list)
     errors = defaultdict(list)
@@ -315,11 +359,17 @@ def create_nodes(nodes_hash):
     def _get_or_create_node(node_hash, nodes_hash):
         node_type, _ = NodeType.objects.get_or_create(name=node_hash['typeOf'])
         try:
-            node, _ = Node.objects.get_or_create(
-                name=node_hash['name'],
-                abbreviation=slugify(node_hash['abbreviation']),
-                typeOf=node_type
-            )
+            if slugify(node_hash['abbreviation']):
+                node, _ = Node.objects.get_or_create(
+                    name=node_hash['name'],
+                    abbreviation=slugify(node_hash['abbreviation']),
+                    typeOf=node_type
+                )
+            else:
+                node, _ = Node.objects.get_or_create(
+                    name=node_hash['name'],
+                    typeOf=node_type
+                )
             found_or_created = {
                 'name': node_hash['name'],
                 'abbreviation': slugify(node_hash['abbreviation']),
@@ -327,26 +377,19 @@ def create_nodes(nodes_hash):
             }
             if _:
                 created.append(found_or_created)
-            elif found_or_created not in created:
+            elif(found_or_created not in created
+                 and found_or_created not in existing):
                 existing.append({
                     'name': node_hash['name'],
                     'abbreviation': slugify(node_hash['abbreviation']),
                     'typeOf': node_type
                 })
-            for parent_id in node_hash['parents']:
-                parent = _get_or_create_node(
-                    nodes_hash[parent_id],
-                    nodes_hash)
-                if parent:
-                    node.parents.add(parent)
-                else:
-                    failed_to_find_or_create_parent[node_hash['name']].append(
-                        nodes_hash[parent_id])
-            return node
-        # data errors are too long fields
         # integrity error are existing with slightly different stuff.
-        except(django.db.utils.DataError,
-               django.db.utils.IntegrityError) as e:
+        except(django.db.utils.IntegrityError) as e:
+            # overwrite these
+            node = _handle_integrity_error(
+                node_hash, node_type, updated_nodes)
+        except(django.db.utils.DataError) as e:
 
             errors[e.__class__].append(e)
             failed_to_create.append({
@@ -354,6 +397,17 @@ def create_nodes(nodes_hash):
                 'abbreviation': slugify(node_hash['abbreviation']),
                 'typeOf': node_type
             })
+            return False
+        for parent_id in node_hash['parents']:
+            parent = _get_or_create_node(
+                nodes_hash[parent_id],
+                nodes_hash)
+            if parent:
+                node.parents.add(parent)
+            else:
+                failed_to_find_or_create_parent[node_hash['name']].append(
+                    nodes_hash[parent_id])
+        return node
 
     for key_or_abbr, node_hash in nodes_hash.items():
         _get_or_create_node(node_hash, nodes_hash)
