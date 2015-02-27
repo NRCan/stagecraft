@@ -354,6 +354,9 @@ def create_nodes(nodes_hash):
             else:
                 failed_to_find_or_create_parent[node_hash['name']].append(
                     nodes_hash[parent_id])
+                WHAT_HAPPENED.this_happened(
+                    'failed_to_find_or_create_parent',
+                    failed_to_find_or_create_parent)
         return node
 
     for key_or_abbr, node_hash in nodes_hash.items():
@@ -471,10 +474,12 @@ def main():
         'unable_data_error_nodes_msgs': 5,
         'duplicate_services': 347,
         'duplicate_transactions': 547,
+        'duplicate_dep_or_agency_abbreviations': 3,
         'link_to_parents_not_found': 175,
         'link_to_parents_found': 610,
         'transactions_associated_with_dashboards': 93,
-        'transactions_not_associated_with_dashboards': 692
+        'transactions_not_associated_with_dashboards': 692,
+        'failed_to_find_or_create_parent': 35
     }
     for key, things in happened.items():
         print key
