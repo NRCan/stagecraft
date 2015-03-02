@@ -184,19 +184,19 @@ expected_result = {
                 " on workplace relations",
         'abbreviation': None,
         'typeOf': 'transaction',
-        'parents': ['Training and resources on workplace relations']
+        'parents': []
     },
     'Training and resources on workplace relations': {
         'name': 'Training and resources on workplace relations',
         'abbreviation': None,
         'typeOf': 'service',
-        'parents': [u'cps']
+        'parents': []
     },
     u'cps': {
         'name': u'Crown Prosecution Service',
         'abbreviation': u'CPS',
         'typeOf': 'agency',
-        'parents': [u'ago', u'foo']
+        'parents': []
     },
     u'ago': {
         'name': "Attorney General's Office",
@@ -211,6 +211,14 @@ expected_result = {
         'parents': []
     }
 }
+expected_links = [
+    ("Registrations to use online training and resources"
+     " on workplace relations",
+     'Training and resources on workplace relations'),
+    ('Training and resources on workplace relations', u'cps'),
+    ('cps', u'ago'),
+    ('cps', u'foo')
+]
 
 
 def test_create_nodes():
@@ -260,8 +268,9 @@ def test_create_nodes():
 
 
 def test_build_up_node_hash():
-    result = build_up_node_hash(tx_fixture, govuk_fixture)
+    result, links = build_up_node_hash(tx_fixture, govuk_fixture)
     assert_that(result, equal_to(expected_result))
+    assert_that(sorted(links), equal_to(sorted(expected_links)))
 
 
 def test_build_up_org_hash():
@@ -270,7 +279,7 @@ def test_build_up_org_hash():
             'name': 'Crown Prosecution Service',
             'abbreviation': 'CPS',
             'typeOf': 'department',
-            'parents': ['ago', 'foo']
+            'parents': []
         },
         'ago': {
             'name': "Attorney General's Office",
@@ -285,5 +294,10 @@ def test_build_up_org_hash():
             'parents': []
         }
     }
-    result = build_up_org_hash(govuk_fixture)
+    expected_links = [
+        ('cps', u'ago'),
+        ('cps', u'foo')
+    ]
+    result, links = build_up_org_hash(govuk_fixture)
     assert_that(result, equal_to(expected_result))
+    assert_that(sorted(links), equal_to(sorted(expected_links)))

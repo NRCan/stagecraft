@@ -65,7 +65,8 @@ def load_organisations(username, password):
     WHAT_HAPPENED.this_happened('organisations', govuk_organisations)
     WHAT_HAPPENED.this_happened('transactions', transactions_data)
 
-    nodes_hash = build_up_node_hash(transactions_data, govuk_organisations)
+    nodes_hash, links = build_up_node_hash(
+        transactions_data, govuk_organisations)
     # as this is recursive internally
     # we could filter to start with the transactions only
     # and then return these created and keyed off the name at the end
@@ -149,7 +150,7 @@ def get_govuk_organisations():
 
 
 def build_up_node_hash(transactions, organisations):
-    org_hash = build_up_org_hash(organisations)
+    org_hash, links = build_up_org_hash(organisations)
     more_than_one_tx = []
     more_than_one_service = []
     """
@@ -169,8 +170,9 @@ def build_up_node_hash(transactions, organisations):
             'name': transaction_name(tx),
             'abbreviation': None,
             'typeOf': 'transaction',
-            'parents': [service_name(tx)]
+            'parents': []
         }
+        links.append((transaction_name(tx), service_name(tx)))
         org_hash[service_name(tx)] = {
             'name': service_name(tx),
             'abbreviation': None,
@@ -190,22 +192,23 @@ def build_up_node_hash(transactions, organisations):
         """
         # if there is an agency then get the thing by abbreviation
         if tx["agency"] and (tx['agency']['abbr'] or tx['agency']['name']):
-            success, link = associate_parents(
+            success, data, link = associate_parents(
                 tx, org_hash, 'agency')
         # if there is a department and no agency
         elif tx['department']:
             # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
-            success, link = associate_parents(
+            success, data, link = associate_parents(
                 tx, org_hash, 'department')
         else:
             raise Exception("transaction with no department or agency!")
         if success:
-            successfully_linked.append(link)
+            links.append(link)
+            successfully_linked.append(data)
         else:
-            failed_to_link.append(link)
+            failed_to_link.append(data)
     WHAT_HAPPENED.this_happened('link_to_parents_found', successfully_linked)
     WHAT_HAPPENED.this_happened('link_to_parents_not_found', failed_to_link)
-    return org_hash
+    return org_hash, links
 
 
 def build_up_org_hash(organisations):
@@ -223,16 +226,21 @@ def build_up_org_hash(organisations):
         }
 
     # assign parents
+    links = []
     for org in organisations:
         for parent in org['parent_organisations']:
-            abbr = org_id_hash[parent['id']]['abbreviation']
-            if abbr:
-                parent_abbreviation = abbr
-            elif org_id_hash[parent['id']]['name']:
-                parent_abbreviation = org_id_hash[parent['id']]['name']
-
-            org_id_hash[org['id']]['parents'].append(
-                slugify(parent_abbreviation))
+            parent_abbr = slugify(org_id_hash[parent['id']]['abbreviation'])
+            abbr = slugify(org['details']['abbreviation'])
+            if abbr and parent_abbr:
+                link = (abbr, parent_abbr)
+            elif abbr:
+                link = (abbr, slugify(org_id_hash[parent['id']]['name']))
+            elif parent_abbr:
+                link = (slugify(org['title']), parent_abbr)
+            else:
+                link = (slugify(org['title']),
+                        slugify(org_id_hash[parent['id']]['name']))
+            links.append(link)
 
     # now the structure of the gov.uk org graph is replicated,
     # create a new hash keyed off the abbreviation for use in linking
@@ -262,40 +270,38 @@ def build_up_org_hash(organisations):
     WHAT_HAPPENED.this_happened(
         'duplicate_dep_or_agency_abbreviations',
         [(abbr, tx) for abbr, tx in abbrs_twice.items()])
-    return org_hash
+    return org_hash, links
 
 
 def associate_parents(tx, org_hash, typeOf):
-    # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
-    if slugify(tx[typeOf]['abbr']) in org_hash:
-        parent = org_hash[slugify(tx[typeOf]['abbr'])]
+    def matching_org(org_hash, key):
+        if key in org_hash:
+            return org_hash[key]
+
+    def has_attr_for_type(tx, typeOf, attr_key):
+        return tx[typeOf][attr_key]
+
+    def has_name_for_type(tx, typeOf):
+        return has_attr_for_type(tx, typeOf, 'name')
+
+    def has_abbreviation_for_type(tx, typeOf):
+        return has_attr_for_type(tx, typeOf, 'abbr')
+    parent_by_name = matching_org(org_hash, slugify(tx[typeOf]['name']))
+    parent_by_abbreviation = matching_org(
+        org_hash, slugify(tx[typeOf]['abbr']))
+    if has_abbreviation_for_type(tx, typeOf) and parent_by_abbreviation:
+        parent = parent_by_abbreviation
         parent = add_type_to_parent(parent, typeOf)
-        # prevent null or blank string parents
-        if slugify(parent['abbreviation']):
-            org_hash[service_name(tx)]['parents'].append(
-                slugify(parent['abbreviation']))
-            return (True, (tx[typeOf], parent))
-        else:
-            # the parent has no name or abbrevation
-            # how did it get his way?
-            return (False, ('blank or null abbr', tx[typeOf], parent))
-    # try the name if no luck with the abbreviation
-    elif slugify(tx[typeOf]['name']) in org_hash:
-        parent = org_hash[slugify(tx[typeOf]['name'])]
+        link = (service_name(tx), slugify(parent['abbreviation']))
+        print link
+    elif has_name_for_type(tx, typeOf) and parent_by_name:
+        parent = parent_by_name
         parent = add_type_to_parent(parent, typeOf)
-        # prevent null or blank string parents
-        if slugify(parent['name']):
-            org_hash[service_name(tx)]['parents'].append(
-                slugify(parent['name']))
-            return (True, (tx[typeOf], parent))
-        else:
-            # the parent has no name or abbrevation
-            # how did it get his way?
-            return (False, ('blank or null name', tx[typeOf], parent))
-    # if there is nothing for name
-    # or abbreviation then add to not found
+        link = (service_name(tx), slugify(parent['name']))
+        print link
     else:
-        return (False, (tx[typeOf], None))
+        return (False, (tx[typeOf], None), None)
+    return (True, (tx[typeOf], parent), link)
 
 ###
 
@@ -306,6 +312,7 @@ def create_nodes(nodes_hash):
     existing = []
     failed_to_find_or_create_parent = defaultdict(list)
     errors = defaultdict(list)
+    abbr_or_name_to_uuid = {}
 
     def _get_or_create_node(node_hash, nodes_hash):
         node_type, _ = NodeType.objects.get_or_create(name=node_hash['typeOf'])
@@ -345,22 +352,30 @@ def create_nodes(nodes_hash):
                 'typeOf': node_type
             })
             return False
-        for parent_id in node_hash['parents']:
-            parent = _get_or_create_node(
-                nodes_hash[parent_id],
-                nodes_hash)
-            if parent:
-                node.parents.add(parent)
-            else:
-                failed_to_find_or_create_parent[node_hash['name']].append(
-                    nodes_hash[parent_id])
-                WHAT_HAPPENED.this_happened(
-                    'failed_to_find_or_create_parent',
-                    failed_to_find_or_create_parent)
+        #for parent_id in node_hash['parents']:
+            #parent = _get_or_create_node(
+                #nodes_hash[parent_id],
+                #nodes_hash)
+            #if parent:
+                #node.parents.add(parent)
+            #else:
+                #failed_to_find_or_create_parent[node_hash['name']].append(
+                    #nodes_hash[parent_id])
+                #WHAT_HAPPENED.this_happened(
+                    #'failed_to_find_or_create_parent',
+                    #failed_to_find_or_create_parent)
         return node
 
+    created_nodes = []
     for key_or_abbr, node_hash in nodes_hash.items():
-        _get_or_create_node(node_hash, nodes_hash)
+        node = _get_or_create_node(node_hash, nodes_hash)
+        if node.abbreviation:
+            abbr_or_name_to_uuid[node.abbreviation] = node.uuid
+        if node.name:
+            abbr_or_name_to_uuid[node.name] = node.uuid
+        created_nodes.append()
+    for node in created_nodes:
+        node.parents.add()
 
     WHAT_HAPPENED.this_happened('created_nodes', created)
     WHAT_HAPPENED.this_happened('existing_nodes', existing)
