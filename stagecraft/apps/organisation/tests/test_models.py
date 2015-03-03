@@ -21,6 +21,17 @@ class NodeTestCase(TestCase):
     def tearDownClass(cls):
         cls.node_type.delete()
 
+    def test_slug_must_be_slug_or_none(self):
+        a = Node.objects.create(
+            slug='what_is_this?', name='abc', typeOf=self.node_type)
+        assert_raises(ValidationError, lambda: a.full_clean())
+
+        b = Node(slug='what-is-this', name='xyx', typeOf=self.node_type)
+        b.full_clean()
+
+        c = Node(name='xyz', typeOf=self.node_type)
+        c.full_clean()
+
     def test_name_must_be_unique(self):
         a = Node.objects.create(name='abc', typeOf=self.node_type)
         a.validate_unique()
