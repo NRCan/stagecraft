@@ -458,8 +458,8 @@ def main():
 
     happened = load_organisations(username, password)
     expected_happenings = {
-        'dashboards_at_start': 872,
-        'dashboards_at_end': 872,
+        'dashboards_at_start': 873,
+        'dashboards_at_end': 873,
         'total_nodes_before': 0,
         'total_nodes_after':  1467,
         'organisations': 894,

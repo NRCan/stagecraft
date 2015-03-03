@@ -21,8 +21,24 @@ class NodeTestCase(TestCase):
     def tearDownClass(cls):
         cls.node_type.delete()
 
-    def test_slug_must_be_slug_or_none(self):
+    def test_full_path_is_slug_of_ancestors(self):
         a = Node.objects.create(
+            slug='foo', name='abc', typeOf=self.node_type)
+        a.save()
+
+        b = Node(slug='what-is-this', name='xyx', typeOf=self.node_type)
+        b.save()
+        b.parents.add([a])
+
+        c = Node(name='xyz', typeOf=self.node_type)
+        c.save()
+        c.parents.add([b])
+        # should we prevent empty? should we have path to parent to redir to service page?  # noqa
+        # should this only work with transactions and which services it should just return own slug? (with own slug it will go to service page - transaction is only time fully qualified works)  # noqa
+        assert_that(c.full_path(), is_('/foo/what-is-this'))
+
+    def test_slug_must_be_slug_or_none(self):
+        a = Node(
             slug='what_is_this?', name='abc', typeOf=self.node_type)
         assert_raises(ValidationError, lambda: a.full_clean())
 
