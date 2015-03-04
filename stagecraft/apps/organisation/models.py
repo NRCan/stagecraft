@@ -57,8 +57,7 @@ class Node(models.Model):
         validators=[
             slug_validator
         ],
-        null=True,
-        blank=True
+        default=''
     )
     typeOf = models.ForeignKey(NodeType)
     parents = models.ManyToManyField('self', symmetrical=False)
