@@ -16,6 +16,9 @@ from stagecraft.apps.dashboards.tests.factories.factories import(
 from stagecraft.apps.datasets.tests.factories import(
     DataGroupFactory, DataTypeFactory, DataSetFactory
 )
+from stagecraft.apps.organisation.tests.factories import(
+    NodeFactory, NodeTypeFactory
+)
 from stagecraft.apps.dashboards.models.dashboard import (
     Dashboard)
 from stagecraft.apps.dashboards.models.module import Module
@@ -864,3 +867,43 @@ class DashboardViewsCreateTestCase(TestCase):
         assert_that(response_dictionary['status'], equal_to('error'))
         assert_that(response_dictionary['message'],
                     equal_to(expected_message))
+
+
+class DashboardResolutionTest(TestCase):
+
+    def setUp(self):
+        self.dept_type = NodeTypeFactory(name='department')
+        self.service_type = NodeTypeFactory(name='service')
+        self.transaction_type = NodeTypeFactory(name='transaction')
+
+        self.dept = NodeFactory(slug='hmrc', typeOf=self.dept_type)
+        self.tax = NodeFactory(slug='tax', typeOf=self.service_type)
+        self.self_assess = NodeFactory(slug='self-assessment', typeOf=self.service_type)
+
+        self.dept_dashboard = Dashboard(
+            organisation=self.dept, dashboard_type='transaction')
+        self.dept_web_traffic = Dashboard(
+            organisation=self.dept, dashboard_type='content')
+        self.self_assess_dashboard = Dashboard(
+            organisation=self.self_assess, dashboard_type='transaction')
+        self.loose_dashboard = Dashboard()
+
+    def test_dept_service_dashboard_gets_found(self):
+        fetched = fetch_dashboard('/service/hmrc')
+        assert_that(fetched.id, equal_to(self.dept_dashboard.id))
+
+    def test_webtraffic_dashboard_gets_found(self):
+        fetched = fetch_dashboard('/web-traffic/hmrc')
+        assert_that(fetched.id, equal_to(self.dept_web_traffic.id))
+
+    def test_direct_dashboard_gets_found(self):
+        fetched = fetch_dashboard('/dashboard/{}'.format(self.loose_dashboard.id))
+        assert_that(fetched.id, equal_to(self.loose_dashboard.id))
+
+    def test_service_dashboard_gets_found(self):
+        fetched = fetch_dashboard('/service/tax/self-assessment')
+        assert_that(fetched.id, equal_to(self.self_assess_dashboard.id))
+
+    def test_valid_org_redirects(self):
+        fetched = fetch_dashboard('/service/land-registry')
+        assert_that(fetched, equal_to('we need to agree on something'))
