@@ -97,21 +97,7 @@ def load_data(username, password):
         'names_description': 8
     })
     transactions_data = spreadsheets.load(username, password)
-
-    # with open('transactions_data.pickle', 'w') as data_file:
-    #     pickle.dump(transactions_data, data_file)
-
-    # with open('transactions_data.pickle', 'r') as data_file:
-    #     transactions_data = pickle.load(data_file)
-
     govuk_organisations = get_govuk_organisations()
-
-    # with open('govuk_organisations.pickle', 'w') as org_file:
-    #     pickle.dump(govuk_organisations, org_file)
-
-    # with open('govuk_organisations.pickle', 'r') as org_file:
-    #     govuk_organisations = pickle.load(org_file)
-
     return transactions_data, govuk_organisations
 
 
@@ -127,7 +113,6 @@ def get_govuk_organisations():
     for page_num in range(2, first_page['pages'] + 1):
         page = get_page(page_num)
         results = results + page['results']
-
     return results
 
 
@@ -139,7 +124,6 @@ def build_up_node_dict(transactions, organisations):
         org_dict, transactions)
     org_dict = add_parents_to_organisations_and_correct_types(
         org_dict, transactions)
-
     return org_dict
 
 
@@ -163,23 +147,34 @@ def add_transactions_and_services_to_org_dict(org_dict, transactions):
     for tx in transactions:
         if transaction_name(tx) in org_dict:
             more_than_one_tx.append(transaction_name(tx))
-        if service_name(tx) in org_dict:
+        if service_name(tx) is not None and\
+                service_name(tx) in org_dict:
             more_than_one_service.append(service_name(tx))
 
-        org_dict[transaction_name(tx)] = {
-            'name': transaction_name(tx),
-            'slug': transaction_slug(tx),
-            'abbreviation': None,
-            'typeOf': 'transaction',
-            'parents': [service_name(tx)]
-        }
-        org_dict[service_name(tx)] = {
-            'name': service_name(tx),
-            'slug': service_slug(tx),
-            'abbreviation': None,
-            'typeOf': 'service',
-            'parents': []
-        }
+        if service_name(tx) is not None:
+            org_dict[service_name(tx)] = {
+                'name': service_name(tx),
+                'slug': service_slug(tx),
+                'abbreviation': None,
+                'typeOf': 'service',
+                'parents': []
+            }
+            org_dict[transaction_name(tx)] = {
+                'name': transaction_name(tx),
+                'slug': transaction_slug(tx),
+                'abbreviation': None,
+                'typeOf': 'transaction',
+                'parents': [service_name(tx)]
+            }
+        else:
+            org_dict[transaction_name(tx)] = {
+                'name': transaction_name(tx),
+                'slug': transaction_slug(tx),
+                'abbreviation': None,
+                'typeOf': 'service',
+                'parents': []
+            }
+
     WHAT_HAPPENED.this_happened('duplicate_services', more_than_one_service)
     WHAT_HAPPENED.this_happened('duplicate_transactions', more_than_one_tx)
     return org_dict
@@ -196,16 +191,16 @@ def add_parents_to_organisations_and_correct_types(org_dict, transactions):
         ***THIS IS ASSUMING AGENCIES ARE ALWAYS JUNIOR TO DEPARTMENTS****
         """
         # if there is an agency then get the thing by abbreviation
-        if tx["agency"] and (tx['agency']['abbr'] or tx['agency']['name']):
+        if tx.get('agency') and (tx['agency']['abbr'] or tx['agency']['name']):
             success, link = associate_parents(
                 tx, org_dict, 'agency')
         # if there is a department and no agency
-        elif tx['department']:
+        elif tx.get('department'):
             # if there is a thing for abbreviation then add it's abbreviation to parents  # noqa
             success, link = associate_parents(
                 tx, org_dict, 'department')
         else:
-            raise Exception("transaction with no department or agency!")
+            print("Transaction with no department or agency: {}".format(tx['name']))
         if success:
             successfully_linked.append(link)
         else:
@@ -298,6 +293,7 @@ def associate_parents(tx, org_dict, typeOf):
 
     def has_abbreviation_for_type(tx, typeOf):
         return has_attr_for_type(tx, typeOf, 'abbr')
+
     parent_by_name = matching_org(org_dict, slugify(tx[typeOf]['name']))
     parent_by_abbreviation = matching_org(
         org_dict, slugify(tx[typeOf]['abbr']))
@@ -314,8 +310,12 @@ def associate_parents(tx, org_dict, typeOf):
     else:
         return (False, (tx[typeOf], None))
 
-    org_dict[service_name(tx)]['parents'].append(
-        parent_identifier)
+    if service_name(tx) is not None:
+        org_dict[service_name(tx)]['parents'].append(
+            parent_identifier)
+    else:
+        org_dict[transaction_name(tx)]['parents'].append(
+            parent_identifier)
     return (True, (tx[typeOf], parent))
 
 
@@ -431,11 +431,15 @@ def slugify(string):
 
 
 def service_name(tx):
-    return tx['service']['name'].encode('utf-8').decode('utf-8')
+    if tx.get('service'):
+        return tx['service']['name'].encode('utf-8').decode('utf-8')
+    return None
 
 
 def service_slug(tx):
-    return tx['service']['slug']
+    if tx.get('service'):
+        return tx['service']['slug']
+    return None
 
 
 def transaction_name(tx):

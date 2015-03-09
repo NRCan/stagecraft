@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 import sys
 
@@ -17,20 +16,13 @@ from stagecraft.apps.organisation.models import Node
 from stagecraft.apps.datasets.models import DataSet
 
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
-handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
-log.addHandler(handler)
-
-
 def import_dashboards(summaries, update_all=False,
                       dry_run=True, publish=False):
     try:
         username = os.environ['GOOGLE_USERNAME']
         password = os.environ['GOOGLE_PASSWORD']
     except KeyError:
-        log.fatal("Please supply username (GOOGLE_USERNAME)\
+        print("Please supply username (GOOGLE_USERNAME)\
                 and password (GOOGLE_PASSWORD) as environment variables")
         sys.exit(1)
 
@@ -45,7 +37,7 @@ def import_dashboards(summaries, update_all=False,
         'names_tx_id': 19,
     })
     records = loader.load(username, password)
-    log.debug('Loaded {} records'.format(len(records)))
+    print('Loaded {} records'.format(len(records)))
 
     failed_dashboards = []
     for record in records:
@@ -56,7 +48,7 @@ def import_dashboards(summaries, update_all=False,
             except ValidationError:
                 failed_dashboards.append(record)
 
-    log.error('Failed dashboards: {}'.format(failed_dashboards))
+    print('Failed dashboards: {}'.format(failed_dashboards))
 
 
 def set_dashboard_attributes(dashboard, record, dry_run, publish):
@@ -77,20 +69,6 @@ def set_dashboard_attributes(dashboard, record, dry_run, publish):
         dashboard.customer_type = record['customer_type']
     if record.get('business_model'):
         dashboard.business_model = record['business_model']
-
-    if dashboard.organisation is None:
-        if record.get('agency'):
-            key = 'agency'
-        else:
-            key = 'department'
-        try:
-            org = Node.objects.get(abbreviation=record[key]['abbr'])
-            dashboard.organisation = org
-        except Node.DoesNotExist:
-            if not dry_run:
-                log.warn('Organisation not found for record : {}' \
-                    .format(record['tx_id']))
-
     if record['high_volume']:
         dashboard.dashboard_type = 'high-volume-transaction'
     else:
@@ -107,13 +85,10 @@ def set_dashboard_attributes(dashboard, record, dry_run, publish):
 
 def import_dashboard(record, summaries, dry_run=True, publish=False):
 
-    log.debug(record)
     try:
         dashboard = Dashboard.objects.get(slug=record['tx_id'])
-        log.debug('Retrieved dashboard: {}'.format(record['tx_id']))
     except Dashboard.DoesNotExist:
         dashboard = Dashboard()
-        log.debug('Creating dashboard: {}'.format(record['tx_id']))
 
     dashboard = set_dashboard_attributes(dashboard, record, dry_run, publish)
     if dry_run:
@@ -126,7 +101,6 @@ def import_dashboard(record, summaries, dry_run=True, publish=False):
 
 
 def determine_modules_for_dashboard(summaries, tx_id):
-
     """
     Inspect the summary data for a given tx_id and determine
     whether modules should be created for the different data types.
@@ -191,10 +165,8 @@ def import_modules(dashboard, dataset, record, summaries):
         if not dry_run:
             try:
                 module.save()
-                log.debug('Added module: {}'.format(module.slug))
             except IntegrityError as e:
-                log.error(
-                    'Error saving module {}: {}'.format(module.slug, str(e)))
+                print('Error saving module {}: {}'.format(module.slug, str(e)))
 
 
 def get_dataset():
@@ -318,8 +290,8 @@ def import_tpy_module(record, dashboard, dataset):
                 'sigfigs': 3
             },
             'classes': 'cols3',
-            },
-        }
+        },
+    }
     module = get_or_create_module(dashboard, attributes['slug'])
     return set_module_attributes(module, dashboard, dataset, attributes)
 
@@ -383,17 +355,17 @@ if __name__ == '__main__':
                         action="store_true")
     args = parser.parse_args()
     if args.all:
-        log.info("Updating all dashboards")
+        print("Updating all dashboards")
         update_all = True
     else:
         update_all = False
     if args.commit:
-        log.info("Committing changes")
+        print("Committing changes")
         dry_run = False
     else:
         dry_run = True
     if args.publish:
-        log.info("Publishing all dashboards")
+        print("Publishing all dashboards")
         publish = True
     else:
         publish = False
@@ -401,8 +373,7 @@ if __name__ == '__main__':
     if os.getenv('SUMMARIES_URL'):
         summaries = requests.get(os.getenv('SUMMARIES_URL')).json()['data']
     else:
-        log.fatal(
-            "Please set SUMMARIES_URL to the endpoint for transactions data")
+        print("Please set SUMMARIES_URL to the endpoint for transactions data")
         sys.exit(1)
 
     import_dashboards(summaries, update_all, dry_run, publish)
