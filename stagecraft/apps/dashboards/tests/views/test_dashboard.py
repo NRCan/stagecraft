@@ -93,16 +93,16 @@ class DashboardViewsListTestCase(TestCase):
     def test_get_dashboards_with_slug_query_param_returns_dashboard_json(self):
         DashboardFactory(slug='my_first_slug')
         resp = self.client.get(
-            '/public/dashboards', {'slug': 'my_first_slug'})
+            '/public/dashboards', {'slug': 'dashboard/my_first_slug'})
         assert_that(json.loads(resp.content), has_entry('slug',
-                                                        'my_first_slug'))
+                                                        'dashboard/my_first_slug'))
         assert_that(resp['Cache-Control'], equal_to('max-age=300'))
 
     def test_public_dashboard_endpoint_has_cors_allowed(self):
         DashboardFactory(slug='my-dashboard')
 
         resp = self.client.get(
-            '/public/dashboards', {'slug': 'my-dashboard'})
+            '/public/dashboards', {'slug': 'dashboard/my-dashboard'})
         assert_that(resp['Access-Control-Allow-Origin'], equal_to('*'))
 
     def test_get_dashboards_only_caches_when_published(self):
@@ -110,11 +110,11 @@ class DashboardViewsListTestCase(TestCase):
         DashboardFactory(slug='unpublished_dashboard', published=False)
 
         resp = self.client.get(
-            '/public/dashboards', {'slug': 'published_dashboard'})
+            '/public/dashboards', {'slug': 'dashboard/published_dashboard'})
         assert_that(resp['Cache-Control'], equal_to('max-age=300'))
 
         resp = self.client.get(
-            '/public/dashboards', {'slug': 'unpublished_dashboard'})
+            '/public/dashboards', {'slug': 'dashboard/unpublished_dashboard'})
         assert_that(resp['Cache-Control'], equal_to('no-cache'))
 
     @patch(
@@ -123,17 +123,17 @@ class DashboardViewsListTestCase(TestCase):
             self,
             spotlightify_patch):
         resp = self.client.get(
-            '/public/dashboards', {'slug': 'my_first_slug'})
+            '/public/dashboards', {'slug': 'dashboard/my_first_slug'})
         assert_that(json.loads(resp.content), equal_to(
             {
                 u'status': u'error',
-                u'message': u"No dashboard with slug 'my_first_slug' exists",
+                u'message': u"No dashboard with slug 'dashboard/my_first_slug' exists",
                 u'errors': [{
                     u'status': u'404',
                     u'title': u'',
                     u'code': u'',
                     u'detail': u"No dashboard with slug " +
-                               u"'my_first_slug' exists",
+                               u"'dashboard/my_first_slug' exists",
                     u'id': u''},
                 ]
             }))
@@ -141,7 +141,7 @@ class DashboardViewsListTestCase(TestCase):
 
     def test_fetch_dashboard_with_multiple_slug_fragments(self):
         dashboard = DashboardFactory(slug='my_first_slug')
-        slug = 'my_first_slug/another/thing'
+        slug = 'dashboard/my_first_slug/another/thing'
         returned_dashboard = fetch_dashboard(slug)
         assert_that(dashboard.id, equal_to(returned_dashboard.id))
 
@@ -152,10 +152,10 @@ class DashboardViewsListTestCase(TestCase):
             self,
             spotlightify_patch):
         resp = self.client.get(
-            '/public/dashboards/', {'slug': 'my_first_slug'})
+            '/public/dashboards/', {'slug': 'dashboard/my_first_slug'})
         assert_redirects(
             resp,
-            'http://testserver/public/dashboards?slug=my_first_slug',
+            'http://testserver/public/dashboards?slug=dashboard%2Fmy_first_slug',
             status_code=301,
             target_status_code=404)
 
@@ -173,7 +173,7 @@ class DashboardViewsListTestCase(TestCase):
             order=3, slug='slug3')
 
         resp = self.client.get(
-            '/public/dashboards', {'slug': 'my-first-slug'})
+            '/public/dashboards', {'slug': 'dashboard/my-first-slug'})
 
         data = json.loads(resp.content)
         assert_that(data['modules'],
@@ -199,7 +199,7 @@ class DashboardViewsListTestCase(TestCase):
             parent=parent)
 
         resp = self.client.get(
-            '/public/dashboards', {'slug': 'my-first-slug/section-we-want'})
+            '/public/dashboards', {'slug': 'dashboard/my-first-slug/section-we-want'})
         data = json.loads(resp.content)
 
         assert_that(data['modules'],
@@ -219,7 +219,7 @@ class DashboardViewsListTestCase(TestCase):
             type=module_type, dashboard=dashboard,
             slug='module-we-dont-want')
         resp = self.client.get(
-            '/public/dashboards', {'slug': 'my-first-slug/module-we-want'})
+            '/public/dashboards', {'slug': 'dashboard/my-first-slug/module-we-want'})
         data = json.loads(resp.content)
         assert_that(data['modules'],
                     contains(has_entry('slug', 'module-we-want')))
@@ -237,7 +237,7 @@ class DashboardViewsListTestCase(TestCase):
             parent=parent)
         resp = self.client.get(
             '/public/dashboards',
-            {'slug': 'my-first-slug/section-we-want/module-we-want'}
+            {'slug': 'dashboard/my-first-slug/section-we-want/module-we-want'}
         )
         data = json.loads(resp.content)
         assert_that(data['modules'],
@@ -251,7 +251,7 @@ class DashboardViewsListTestCase(TestCase):
             type=module_type, dashboard=dashboard,
             slug='module-we-want')
         resp = self.client.get(
-            '/public/dashboards', {'slug': 'my-first-slug/nonexisting-module'})
+            '/public/dashboards', {'slug': 'dashboard/my-first-slug/nonexisting-module'})
         data = json.loads(resp.content)
         assert_that(data, has_entry('status', 'error'))
 
@@ -279,7 +279,7 @@ class DashboardViewsListTestCase(TestCase):
             slug='module-we-dont-want')
         resp = self.client.get(
             '/public/dashboards',
-            {'slug': 'my-first-slug/module-we-want/module-we-want-tab-we-want'}
+            {'slug': 'dashboard/my-first-slug/module-we-want/module-we-want-tab-we-want'}
         )
         data = json.loads(resp.content)
         assert_that(data['modules'],
@@ -314,7 +314,7 @@ class DashboardViewsListTestCase(TestCase):
             },
             parent=parent
         )
-        slug = 'my-first-slug/section-we-want/module-we-want/'
+        slug = 'dashboard/my-first-slug/section-we-want/module-we-want/'
         slug += 'module-we-want-tab-we-want'
         resp = self.client.get(
             '/public/dashboards',
@@ -353,7 +353,7 @@ class DashboardViewsListTestCase(TestCase):
             slug='module-we-dont-want')
         resp = self.client.get(
             '/public/dashboards',
-            {'slug': 'my-first-slug/module/module-non-existent-tab'}
+            {'slug': 'dashboard/my-first-slug/module/module-non-existent-tab'}
         )
         data = json.loads(resp.content)
         assert_that(data, has_entry('status', 'error'))
@@ -873,37 +873,49 @@ class DashboardResolutionTest(TestCase):
 
     def setUp(self):
         self.dept_type = NodeTypeFactory(name='department')
+        self.service_group_type = NodeTypeFactory(name='service-group')
         self.service_type = NodeTypeFactory(name='service')
-        self.transaction_type = NodeTypeFactory(name='transaction')
 
         self.dept = NodeFactory(slug='hmrc', typeOf=self.dept_type)
-        self.tax = NodeFactory(slug='tax', typeOf=self.service_type)
+        self.tax = NodeFactory(slug='tax', typeOf=self.service_group_type)
+        self.tax.parents.add(self.dept)
         self.self_assess = NodeFactory(slug='self-assessment', typeOf=self.service_type)
+        self.self_assess.parents.add(self.tax)
 
-        self.dept_dashboard = Dashboard(
+        self.dept_dashboard = DashboardFactory(
             organisation=self.dept, dashboard_type='transaction')
-        self.dept_web_traffic = Dashboard(
+        self.dept_web_traffic = DashboardFactory(
             organisation=self.dept, dashboard_type='content')
-        self.self_assess_dashboard = Dashboard(
+        self.tax_dashboard = DashboardFactory(
+            organisation=self.tax, dashboard_type='transaction')
+        self.self_assess_dashboard = DashboardFactory(
             organisation=self.self_assess, dashboard_type='transaction')
-        self.loose_dashboard = Dashboard()
+        self.loose_dashboard = DashboardFactory()
 
     def test_dept_service_dashboard_gets_found(self):
-        fetched = fetch_dashboard('/service/hmrc')
+        fetched = fetch_dashboard('services/hmrc')
         assert_that(fetched.id, equal_to(self.dept_dashboard.id))
 
     def test_webtraffic_dashboard_gets_found(self):
-        fetched = fetch_dashboard('/web-traffic/hmrc')
+        fetched = fetch_dashboard('web-traffic/hmrc')
         assert_that(fetched.id, equal_to(self.dept_web_traffic.id))
 
     def test_direct_dashboard_gets_found(self):
-        fetched = fetch_dashboard('/dashboard/{}'.format(self.loose_dashboard.id))
+        fetched = fetch_dashboard('dashboard/{}'.format(self.loose_dashboard.slug))
         assert_that(fetched.id, equal_to(self.loose_dashboard.id))
 
     def test_service_dashboard_gets_found(self):
-        fetched = fetch_dashboard('/service/tax/self-assessment')
+        fetched = fetch_dashboard('services/tax/self-assessment')
         assert_that(fetched.id, equal_to(self.self_assess_dashboard.id))
 
+    def test_service_group_dashboard_gets_found(self):
+        fetched = fetch_dashboard('services/tax')
+        assert_that(fetched.id, equal_to(self.tax_dashboard.id))
+
+    def test_getting_a_module_on_a_service_group(self):
+        fetched = fetch_dashboard('services/tax/some-module')
+        assert_that(fetched.id, equal_to(self.tax_dashboard.id))
+
     def test_valid_org_redirects(self):
-        fetched = fetch_dashboard('/service/land-registry')
+        fetched = fetch_dashboard('services/land-registry')
         assert_that(fetched, equal_to('we need to agree on something'))

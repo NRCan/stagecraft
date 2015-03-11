@@ -1,8 +1,13 @@
+import logging
+
 from django.core.validators import RegexValidator
 from django.db import models
 from uuidfield import UUIDField
 
 from stagecraft.apps.organisation.views import NodeView
+
+
+logger = logging.getLogger(__name__)
 
 
 def list_to_tuple_pairs(elements):
@@ -46,8 +51,6 @@ class Dashboard(models.Model):
         'transaction',
         'high-volume-transaction',
         'service-group',
-        'agency',
-        'department',
         'content',
         'other',
     ]
@@ -120,7 +123,6 @@ class Dashboard(models.Model):
         'other_notes',
         'page_type',
         'published',
-        'slug',
         'strapline',
         'tagline',
         'title'
@@ -179,8 +181,26 @@ class Dashboard(models.Model):
         )
         return related_pages_dict
 
+    def compute_slug(self):
+        translation = {
+            'transaction': 'services',
+            'high-volume-transaction': 'services',
+            'service-group': 'services',
+            'other': 'services',
+            'content': 'web-traffic',
+        }
+
+        if self.organisation is not None:
+            slug_type = translation[self.dashboard_type]
+            slug = '{}/foo'.format(slug_type)
+        else:
+            slug = 'dashboard/{}'.format(self.slug)
+
+        return slug
+
     def spotlightify(self, request_slug=None):
         base_dict = self.spotlightify_base_dict()
+        base_dict['slug'] = self.compute_slug()
         base_dict['modules'] = [
             m.spotlightify()
             for m in self.module_set.filter(parent=None).order_by('order')]

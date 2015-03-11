@@ -63,7 +63,7 @@ class Node(models.Model):
         default=''
     )
     typeOf = models.ForeignKey(NodeType)
-    parents = models.ManyToManyField('self', symmetrical=False)
+    parents = models.ManyToManyField('self', symmetrical=False, related_name='children')
 
     def __str__(self):
         return "{}".format(self.name)
