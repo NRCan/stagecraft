@@ -16,7 +16,7 @@ from stagecraft.apps.dashboards.models import ModuleType
 from stagecraft.apps.datasets.models import DataSet
 
 
-def import_dashboards(summaries, update_all=False,
+def import_dashboards(summaries, blacklist, update_all=False,
                       dry_run=True, publish=False):
     try:
         username = os.environ['GOOGLE_USERNAME']
@@ -37,10 +37,12 @@ def import_dashboards(summaries, update_all=False,
         'names_tx_id': 19,
     })
     records = loader.load(username, password)
-    print('Loaded {} records'.format(len(records)))
 
     failed_dashboards = []
     for record in records:
+        if record['tx_id'] in blacklist:
+            print("Skipping {} as it is blacklisted".format(record['tx_id']))
+            continue
         if update_all or not record['high_volume']:
             loader.sanitise_record(record)
             try:
@@ -376,4 +378,11 @@ if __name__ == '__main__':
         print("Please set SUMMARIES_URL to the endpoint for transactions data")
         sys.exit(1)
 
-    import_dashboards(summaries, update_all, dry_run, publish)
+    blacklist = []
+    try:
+        blacklist = open('blacklist').read().splitlines()
+        print('Skipping these slugs: {}'.format(blacklist))
+    except IOError:
+        print 'Not using a blacklist'
+
+    import_dashboards(summaries, blacklist, update_all, dry_run, publish)
