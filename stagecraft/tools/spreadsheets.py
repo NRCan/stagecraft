@@ -132,6 +132,7 @@ class SpreadsheetMunger:
         rows = []
         for row in all_values[1:]:
             rows.append(self._parse_tx_row(row))
+        print("Loaded {} TxEx rows".format(len(rows)))
         return rows
 
     def load_names_worksheet(self, account):
@@ -143,6 +144,7 @@ class SpreadsheetMunger:
             parsed = self._parse_names_row(row)
             if parsed is not None:
                 rows.append(parsed)
+        print("Loaded {} Names rows".format(len(rows)))
         return rows
 
     def merge(self, tx, names):
@@ -169,6 +171,7 @@ class SpreadsheetMunger:
             print("There were unmerged records:")
             for record in unmerged:
                 print(record)
+        print("Merged {} records".format(len(merged)))
         return merged
 
     def sanitise_record(self, record):

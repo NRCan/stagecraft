@@ -171,8 +171,8 @@ def key_govuk_org_dict_by_abbreviation(govuk_org_dict):
     for org_id, org in govuk_org_dict.items():
         # If the abbreviation is already in the dict, record the
         # organisation as a duplicate.
-        if org['abbreviation'].lower() in org_dict:
-            if not duplicates.get([org['abbreviation'].lower()]):
+        if org.get('abbreviation') and org['abbreviation'].lower() in org_dict:
+            if not duplicates[org['abbreviation'].lower()]:
                 duplicates[org['abbreviation'].lower()].append(
                     org_dict[org['abbreviation'].lower()])
             duplicates[org['abbreviation'].lower()].append(org)
@@ -180,7 +180,7 @@ def key_govuk_org_dict_by_abbreviation(govuk_org_dict):
         else:
             # If organisation does not have an abbreviation, use the name
             # as the key.
-            if org['abbreviation'].lower():
+            if org.get('abbreviation'):
                 org_dict[org['abbreviation'].lower()] = org
             else:
                 org_dict[org['name'].lower()] = org
@@ -376,13 +376,14 @@ def save_parent_associations(created_nodes, key_to_uuid):
 
 def associate_with_dashboard(record):
     try:
-        transaction = Node.objects.get(name=record['name'])
+        transaction = Node.objects.filter(name=record['name']).first()
     except DataError as e:
-        print("Couldn't get org with name {}, error was {}. ",
-              "Trying again with {}".
+        print("Couldn't get org with name {}, error was {}. \
+              Trying again with {}".
               format(transaction_name(record).encode('utf-8'),
                      e.message, transaction_name_latin1(record)))
-        transaction = Node.objects.get(name=record['name']).first()
+        transaction = Node.objects.filter(
+            name=transaction_name_latin1(record)).first()
 
     dashboards = []
     if transaction is not None:
