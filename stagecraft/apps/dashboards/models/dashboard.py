@@ -151,7 +151,6 @@ class Dashboard(models.Model):
             base_dict['agency'] = self.agency().spotlightify()
         return base_dict
 
-    @timeit
     def spotlightify_base_dict(self):
         base_dict = {}
         for field in self.spotlightify_base_fields:
