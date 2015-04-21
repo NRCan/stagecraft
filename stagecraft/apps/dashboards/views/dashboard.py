@@ -99,6 +99,8 @@ def list_dashboards(user, request):
     parsed_dashboards = []
 
     for item in Dashboard.objects.all().order_by('title'):
+        modules = [{'id': module.id, 'title': module.title}
+                   for module in item.module_set.all()]
         parsed_dashboards.append({
             'id': item.id,
             'title': item.title,
@@ -108,7 +110,8 @@ def list_dashboards(user, request):
             'public-url': '{0}/performance/{1}'.format(
                 settings.GOVUK_ROOT, item.slug),
             'status': item.status,
-            'published': item.published
+            'published': item.published,
+            'modules': modules
         })
 
     return HttpResponse(to_json({'dashboards': parsed_dashboards}))
