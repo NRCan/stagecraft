@@ -98,21 +98,49 @@ def fetch_dashboard(dashboard_slug):
 def list_dashboards(user, request):
     parsed_dashboards = []
 
-    for item in Dashboard.objects.all().order_by('title'):
-        modules = [{'id': module.id, 'title': module.title}
-                   for module in item.module_set.all()]
-        parsed_dashboards.append({
-            'id': item.id,
-            'title': item.title,
-            'url': '{0}{1}'.format(
-                settings.APP_ROOT,
-                reverse('dashboard', kwargs={'identifier': item.slug})),
-            'public-url': '{0}/performance/{1}'.format(
-                settings.GOVUK_ROOT, item.slug),
-            'status': item.status,
-            'published': item.published,
-            'modules': modules
-        })
+    import datetime
+    start = datetime.datetime.now()
+    modules = Module.objects.select_related(
+        'dashboard').order_by('dashboard').all()
+    for module in modules:
+        dashboard = module.dashboard
+        if parsed_dashboards:
+            if parsed_dashboards[-1]['id'] == dashboard.id:
+                module_dict = {'id': module.id, 'title': module.title}
+                parsed_dashboards[-1]['modules'].append(module_dict)
+            else:
+                parsed_dashboards.append({
+                    'id': dashboard.id,
+                    'title': dashboard.title,
+                    'url': '{0}{1}'.format(
+                        settings.APP_ROOT,
+                        reverse(
+                            'dashboard',
+                            kwargs={'identifier': dashboard.slug})),
+                    'public-url': '{0}/performance/{1}'.format(
+                        settings.GOVUK_ROOT, dashboard.slug),
+                    'status': dashboard.status,
+                    'published': dashboard.published,
+                    'modules': []})
+        else:
+            parsed_dashboards.append({
+                'id': dashboard.id,
+                'title': dashboard.title,
+                'url': '{0}{1}'.format(
+                    settings.APP_ROOT,
+                    reverse(
+                        'dashboard',
+                        kwargs={'identifier': dashboard.slug})),
+                'public-url': '{0}/performance/{1}'.format(
+                    settings.GOVUK_ROOT, dashboard.slug),
+                'status': dashboard.status,
+                'published': dashboard.published,
+                'modules': []})
+    print "================================="
+    print "================================="
+    print datetime.datetime.now() - start
+    print "^================================="
+    print "^================================="
 
     return HttpResponse(to_json({'dashboards': parsed_dashboards}))
 
