@@ -19,7 +19,6 @@ from stagecraft.libs.authorization.http import permission_required
 from stagecraft.libs.validation.validation import is_uuid
 from stagecraft.libs.views.utils import to_json, create_error
 from stagecraft.libs.views.transaction import atomic_view
-from .module import add_module_to_dashboard
 from ..models.module import Module
 import time
 
@@ -149,7 +148,8 @@ def dashboard(user, request, identifier=None):
                                              module_data,
                                              parent=None):
         modules = []
-        module = add_module_to_dashboard(dashboard, module_data, parent)
+        module = Module.objects.update(dashboard, module_data, parent)
+        # add_module_to_dashboard(dashboard, module_data, parent)
         modules.append(module)
         for module_data in module_data['modules']:
             modules.extend(add_module_and_children_to_dashboard(
