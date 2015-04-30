@@ -525,7 +525,11 @@ class ModuleTypeViewsTestCase(TestCase):
         ModuleTypeFactory(name="foo", schema={})
         ModuleTypeFactory(name="bar", schema={})
 
-        resp = self.client.get('/module-type?name=foo')
+        resp = self.client.get(
+            '/module-type?name=foo',
+            HTTP_AUTHORIZATION='Bearer development-oauth-access-token'
+        )
+
         resp_json = json.loads(resp.content)
 
         assert_that(len(resp_json), 1)
@@ -538,7 +542,11 @@ class ModuleTypeViewsTestCase(TestCase):
         ModuleTypeFactory(name="foo", schema={})
         ModuleTypeFactory(name="bar", schema={})
 
-        resp = self.client.get('/module-type?name=fOo')
+        resp = self.client.get(
+            '/module-type?name=fOo',
+            HTTP_AUTHORIZATION='Bearer development-oauth-access-token'
+        )
+
         resp_json = json.loads(resp.content)
 
         assert_that(len(resp_json), 1)
@@ -551,7 +559,7 @@ class ModuleTypeViewsTestCase(TestCase):
         resp = self.client.post(
             '/module-type',
             data=json.dumps({
-                'name': 'a-type',
+                'name': 'a_type',
                 'schema': {'type': 'string'},
             }),
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token',
@@ -562,7 +570,7 @@ class ModuleTypeViewsTestCase(TestCase):
         resp_json = json.loads(resp.content)
 
         assert_that(resp_json, has_key('id'))
-        assert_that(resp_json, has_entry('name', 'a-type'))
+        assert_that(resp_json, has_entry('name', 'a_type'))
         assert_that(resp_json, has_entry('schema', {'type': 'string'}))
 
         stored_types = ModuleType.objects.get(id=resp_json['id'])
@@ -593,7 +601,7 @@ class ModuleTypeViewsTestCase(TestCase):
         resp = self.client.post(
             '/module-type',
             data=json.dumps({
-                'name': 'a-type',
+                'name': 'a_type',
             }),
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token',
             content_type='application/json')
@@ -604,7 +612,7 @@ class ModuleTypeViewsTestCase(TestCase):
         resp = self.client.post(
             '/module-type',
             data=json.dumps({
-                'name': 'a-type',
+                'name': 'a_type',
                 'schema': {'properties': 'true'},
             }),
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token',

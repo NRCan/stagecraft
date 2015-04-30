@@ -2,6 +2,7 @@
 import json
 
 from django.http import HttpResponse
+from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from jsonschema.exceptions import SchemaError, ValidationError
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -13,6 +14,50 @@ from stagecraft.libs.authorization.http import permission_required
 from stagecraft.libs.validation.validation import is_uuid
 
 from ..models import Dashboard, Module, ModuleType
+from stagecraft.libs.views.resource import ResourceView
+
+
+class ModuleTypeView(ResourceView):
+    model = ModuleType
+
+    schema = {
+        "$schema": "http://json-schema.org/schema#",
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+            },
+            "schema": {
+                "type": "object",
+            }
+        },
+        "required": ["name", "schema"],
+        "additionalProperties": False,
+    }
+
+    list_filters = {
+        'name': 'name__iexact'
+    }
+
+    @method_decorator(never_cache)
+    def get(self, request, **kwargs):
+        return super(ModuleTypeView, self).get(request, **kwargs)
+
+    @method_decorator(permission_required('dashboard'))
+    def post(self, user, request, **kwargs):
+        return super(ModuleTypeView, self).post(user, request, **kwargs)
+
+    def update_model(self, model, model_json, request):
+        for (key, value) in model_json.items():
+            setattr(model, key, value)
+
+    @staticmethod
+    def serialize(model):
+        return {
+            'id': str(model.id),
+            'name': model.name,
+            'schema': model.schema,
+        }
 
 
 def json_response(obj):
@@ -148,56 +193,3 @@ def add_module_to_dashboard_view(user, request, dashboard):
         return HttpResponse(e.message, status=400)
 
     return json_response(module.serialize())
-
-
-@csrf_exempt
-@never_cache
-def root_types(request):
-    if request.method == 'GET':
-        return list_types(request)
-    elif request.method == 'POST':
-        return add_type(request)
-    else:
-        return HttpResponse('', status=405)
-
-
-def list_types(request):
-    query_parameters = {
-        'name': request.GET.get('name', None),
-    }
-    filter_args = {
-        "{}__iexact".format(k): v
-        for (k, v) in query_parameters.items() if v is not None
-    }
-
-    module_types = ModuleType.objects.filter(**filter_args)
-    serialized = [module_type.serialize() for module_type in module_types]
-
-    return json_response(serialized)
-
-
-@permission_required('dashboard')
-def add_type(user, request):
-    if request.META.get('CONTENT_TYPE', '').lower() != 'application/json':
-        return HttpResponse('bad content type', status=415)
-
-    try:
-        type_settings = json.loads(request.body)
-    except ValueError:
-        return HttpResponse('bad json', status=400)
-
-    if 'name' not in type_settings or 'schema' not in type_settings:
-        return HttpResponse('name and schema fields required', status=400)
-
-    module_type = ModuleType(
-        name=type_settings['name'],
-        schema=type_settings['schema'])
-
-    try:
-        module_type.validate_schema()
-    except SchemaError as err:
-        return HttpResponse('bad schema: ' + err.message, status=400)
-
-    module_type.save()
-
-    return json_response(module_type.serialize())
