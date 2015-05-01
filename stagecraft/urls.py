@@ -69,14 +69,14 @@ urlpatterns = patterns(
     # Dashboard by UUID
     url(r'^dashboard/(?P<identifier>{})/module$'.format(uuid_regexp),
         module_views.modules_on_dashboard),
-    url(r'^dashboard/(?P<identifier>{})$'.format(uuid_regexp),
-        dashboard_views.dashboard, name='dashboard'),
+    # url(r'^dashboard/(?P<identifier>{})$'.format(uuid_regexp),
+    #     dashboard_views.dashboard, name='dashboard'),
 
     # Or Slug
     url(r'^dashboard/(?P<identifier>[-a-z0-9]+)/module$',
         module_views.modules_on_dashboard),
-    url(r'^dashboard/(?P<identifier>[-a-z0-9]+)$',
-        dashboard_views.dashboard, name='dashboard'),
+    # url(r'^dashboard/(?P<identifier>[-a-z0-9]+)$',
+    #     dashboard_views.dashboard, name='dashboard'),
 
     url(r'^transactions-explorer-service/(?P<identifier>[-a-z0-9]+)/dashboard',
         transactions_explorer_views.dashboards_by_tx, name='dashboards_by_tx'),

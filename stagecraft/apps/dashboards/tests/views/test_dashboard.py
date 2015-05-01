@@ -63,6 +63,12 @@ class DashboardViewsListTestCase(TestCase):
 
         response_object = json.loads(resp.content)
 
+        print "*************************************"
+        print "*************************************"
+        print response_object
+        print "*************************************"
+        print "*************************************"
+
         assert_that(response_object[0]['title'], is_('Alpha'))
         assert_that(response_object[1]['title'], is_('Beta'))
 

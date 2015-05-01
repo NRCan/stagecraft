@@ -3,7 +3,6 @@ import logging
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.urlresolvers import reverse
 from django.db import IntegrityError
 from django.http import (HttpResponse,
                          HttpResponseBadRequest,
@@ -100,7 +99,9 @@ class DashboardView(ResourceView):
 
     @method_decorator(never_cache)
     def get(self, request, **kwargs):
-        return super(DashboardView, self).get(request, **kwargs)
+        self.order_by = 'title'
+        return super(DashboardView, self).get(request,
+                                              order_by=self.order_by, **kwargs)
 
     @method_decorator(permission_required('dashboard'))
     def post(self, user, request, **kwargs):
@@ -115,9 +116,8 @@ class DashboardView(ResourceView):
         return {
             'id': str(model.id),
             'title': model.title,
-            'url': '{0}{1}'.format(
-                settings.APP_ROOT,
-                reverse('dashboard', kwargs={'identifier': model.slug})),
+            'url': '{0}/dashboard/{1}'.format(
+                settings.APP_ROOT, model.slug),
             'public-url': '{0}/performance/{1}'.format(
                 settings.GOVUK_ROOT, model.slug),
             'status': model.status,

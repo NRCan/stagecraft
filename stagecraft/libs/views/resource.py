@@ -125,6 +125,7 @@ class ResourceView(View):
     def get(self, request, **kwargs):
         id = kwargs.get(self.id_field, None)
         user = kwargs.get('user', None)
+        order_by = kwargs.get('order_by', None)
         sub_resource = kwargs.get('sub_resource', None)
 
         if id is not None:
@@ -136,7 +137,8 @@ class ResourceView(View):
             else:
                 return self._response(model)
         else:
-            return self._response(self.list(request, user=user))
+            return self._response(self.list(request, user=user),
+                                  order_by=order_by)
 
     def _user_missing_model_permission(self, user, model):
         user_is_not_admin = 'admin' not in user['permissions']
@@ -230,10 +232,14 @@ class ResourceView(View):
                 'validation errors:\n{}'.format('\n'.join(messages)),
                 status=400)
 
-    def _response(self, model):
+    def _response(self, model, order_by=None):
         if hasattr(self.__class__, 'serialize'):
             if hasattr(model, '__iter__'):
-                obj = [self.__class__.serialize(m) for m in model]
+                lst = [self.__class__.serialize(m) for m in model]
+                if order_by:
+                    obj = sorted(lst, key=lambda k: k[order_by])
+                else:
+                    obj = lst
             else:
                 obj = self.__class__.serialize(model)
         else:
