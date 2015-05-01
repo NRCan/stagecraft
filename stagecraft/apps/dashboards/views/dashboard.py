@@ -37,9 +37,6 @@ class DashboardView(ResourceView):
             "objects": {
                 "type": "string",
             },
-            "id": {
-                "type": "uuid",
-            },
             "slug": {
                 "type": "string",
             },
@@ -79,6 +76,18 @@ class DashboardView(ResourceView):
             "tagline": {
                 "type": "string",
             },
+            "organisation": {
+                "type": "string",
+            },
+            "published": {
+                "type": "string",
+            },
+            "links": {
+                "type": "string",
+            },
+            "modules": {
+                "type": "array",
+            }
         },
         "required": ["slug", "title"],
         "additionalProperties": False,
@@ -103,7 +112,17 @@ class DashboardView(ResourceView):
 
     @staticmethod
     def serialize(model):
-        return model.serialize()
+        return {
+            'id': str(model.id),
+            'title': model.title,
+            'url': '{0}{1}'.format(
+                settings.APP_ROOT,
+                reverse('dashboard', kwargs={'identifier': model.slug})),
+            'public-url': '{0}/performance/{1}'.format(
+                settings.GOVUK_ROOT, model.slug),
+            'status': model.status,
+            'published': model.published
+        }
 
 
 def dashboards_for_spotlight(request):
@@ -169,29 +188,6 @@ def fetch_dashboard(dashboard_slug):
     slug = dashboard_slug.split('/')[0]
     dashboard = Dashboard.objects.filter(slug=slug).first()
     return dashboard
-
-
-@cache_control(max_age=60)
-@csrf_exempt
-@require_http_methods(['GET'])
-@permission_required('dashboard')
-def list_dashboards(user, request):
-    parsed_dashboards = []
-
-    for item in Dashboard.objects.all().order_by('title'):
-        parsed_dashboards.append({
-            'id': item.id,
-            'title': item.title,
-            'url': '{0}{1}'.format(
-                settings.APP_ROOT,
-                reverse('dashboard', kwargs={'identifier': item.slug})),
-            'public-url': '{0}/performance/{1}'.format(
-                settings.GOVUK_ROOT, item.slug),
-            'status': item.status,
-            'published': item.published
-        })
-
-    return HttpResponse(to_json({'dashboards': parsed_dashboards}))
 
 
 @csrf_exempt

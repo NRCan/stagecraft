@@ -57,8 +57,6 @@ urlpatterns = patterns(
     url(r'^_status$', status_views.status),
 
     # Dashboards
-    url(r'^dashboards$', dashboard_views.list_dashboards),
-    url(r'^dashboard$', dashboard_views.dashboard, name='dashboard'),
     url(
         r'^public/dashboards$',
         dashboard_views.dashboards_for_spotlight,
@@ -96,4 +94,7 @@ urlpatterns = patterns(
     resource_url('module-type',
                  module_views.ModuleTypeView,
                  id_matcher='<name>[\w-]+'),
+    resource_url('dashboard',
+                 dashboard_views.DashboardView,
+                 id_matcher='<slug>[\w-]+'),
 )
