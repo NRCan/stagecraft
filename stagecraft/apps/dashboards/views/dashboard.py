@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import cache_control, never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-
+from .module import add_module_to_dashboard
 from stagecraft.apps.dashboards.models.dashboard import Dashboard
 from stagecraft.apps.organisation.models import Node
 from stagecraft.libs.authorization.http import permission_required
@@ -148,8 +148,7 @@ def dashboard(user, request, identifier=None):
                                              module_data,
                                              parent=None):
         modules = []
-        module = Module.objects.update(dashboard, module_data, parent)
-        # add_module_to_dashboard(dashboard, module_data, parent)
+        module = add_module_to_dashboard(dashboard, module_data, parent)
         modules.append(module)
         for module_data in module_data['modules']:
             modules.extend(add_module_and_children_to_dashboard(
