@@ -9,6 +9,7 @@ from django.http import (HttpResponse,
                          HttpResponseBadRequest,
                          HttpResponseNotFound)
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_control, never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -17,12 +18,92 @@ from stagecraft.apps.dashboards.models.dashboard import Dashboard
 from stagecraft.apps.organisation.models import Node
 from stagecraft.libs.authorization.http import permission_required
 from stagecraft.libs.validation.validation import is_uuid
+from stagecraft.libs.views.resource import ResourceView
 from stagecraft.libs.views.utils import to_json, create_error
 from stagecraft.libs.views.transaction import atomic_view
 from ..models.module import Module
 import time
 
 logger = logging.getLogger(__name__)
+
+
+class DashboardView(ResourceView):
+    model = Dashboard
+
+    schema = {
+        "$schema": "http://json-schema.org/schema#",
+        "type": "object",
+        "properties": {
+            "objects": {
+                "type": "string",
+            },
+            "id": {
+                "type": "uuid",
+            },
+            "slug": {
+                "type": "string",
+            },
+            "dashboard_type": {
+                "type": "string",
+            },
+            "page_type": {
+                "type": "string",
+            },
+            "title": {
+                "type": "string",
+            },
+            "description": {
+                "type": "string",
+            },
+            "description_extra": {
+                "type": "string",
+            },
+            "costs": {
+                "type": "string",
+            },
+            "other_notes": {
+                "type": "string",
+            },
+            "customer_type": {
+                "type": "string",
+            },
+            "business_model": {
+                "type": "string",
+            },
+            "improve_dashboard_message": {
+                "type": "boolean",
+            },
+            "strapline": {
+                "type": "string",
+            },
+            "tagline": {
+                "type": "string",
+            },
+        },
+        "required": ["slug", "title"],
+        "additionalProperties": False,
+    }
+
+    list_filters = {
+        'id': 'id__iexact',
+        'slug': 'slug_iexact'
+    }
+
+    @method_decorator(never_cache)
+    def get(self, request, **kwargs):
+        return super(DashboardView, self).get(request, **kwargs)
+
+    @method_decorator(permission_required('dashboard'))
+    def post(self, user, request, **kwargs):
+        return super(DashboardView, self).post(user, request, **kwargs)
+
+    def update_model(self, model, model_json, request):
+        for (key, value) in model_json.items():
+            setattr(model, key, value)
+
+    @staticmethod
+    def serialize(model):
+        return model.serialize()
 
 
 def dashboards_for_spotlight(request):
