@@ -381,10 +381,12 @@ class DashboardViewsGetTestCase(TestCase):
     @with_govuk_signon(permissions=['dashboard'])
     def test_get_an_existing_dashboard_returns_a_dashboard(self):
         dashboard = DashboardFactory(slug='slug1')
+        dashboard2 = DashboardFactory(slug='slug2')
+        dashboard3 = DashboardFactory(slug='slug3')
 
         resp = self.client.get(
             '/dashboard/{}'.format(dashboard.slug),
-            HTTP_AUTHORIZATION='Bearer correct-token')
+            HTTP_AUTHORIZATION='Bearer development-oauth-access-token')
 
         assert_that(resp.status_code, equal_to(200))
         assert_that(
@@ -394,11 +396,11 @@ class DashboardViewsGetTestCase(TestCase):
                     "description_extra": "",
                     "strapline": "Dashboard",
                     "description": "",
-                    "links": [],
+                    # "links": [],
                     "title": "title",
                     "tagline": "",
                     "organisation": None,
-                    "modules": [],
+                    # "modules": [],
                     "dashboard_type": "transaction",
                     "slug": dashboard.slug,
                     "improve_dashboard_message": True,

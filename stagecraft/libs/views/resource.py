@@ -235,7 +235,11 @@ class ResourceView(View):
     def _response(self, model, order_by=None):
         if hasattr(self.__class__, 'serialize'):
             if hasattr(model, '__iter__'):
-                lst = [self.__class__.serialize(m) for m in model]
+                if hasattr(self.__class__, 'serialize_list'):
+                    lst = [self.__class__.serialize_list(m) for m in model]
+                else:
+                    lst = [self.__class__.serialize(m) for m in model]
+
                 if order_by:
                     obj = sorted(lst, key=lambda k: k[order_by])
                 else:
