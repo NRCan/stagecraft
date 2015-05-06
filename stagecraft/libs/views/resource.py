@@ -192,9 +192,8 @@ class ResourceView(View):
         if err:
             return err
 
-        try:
-            model = self.by_id(request, id, user=user)
-        except self.model.DoesNotExist:
+        model = self.by_id(request, id, user=user)
+        if model is None:
             return HttpResponse('model not found', status=404)
 
         err = self.update_model(model, model_json, request)

@@ -122,7 +122,8 @@ class DashboardView(ResourceView):
 
     def update_model(self, model, model_json, request):
 
-        if model_json.get('organisation', None).get("id"):
+        # if model_json.get('organisation', None).get("id"):
+        if 'organisation' in model_json:
             org_id = model_json.get('organisation', None).get("id")
             if not is_uuid(org_id):
                 error = {
