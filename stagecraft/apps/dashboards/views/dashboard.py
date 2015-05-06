@@ -122,8 +122,9 @@ class DashboardView(ResourceView):
 
     def update_model(self, model, model_json, request):
 
-        if model_json.get('organisation'):
-            if not is_uuid(model_json['organisation']):
+        if model_json.get('organisation', None).get("id"):
+            org_id = model_json.get('organisation', None).get("id")
+            if not is_uuid(org_id):
                 error = {
                     'status': 'error',
                     'message': 'Organisation must be a valid UUID',
@@ -135,8 +136,8 @@ class DashboardView(ResourceView):
                 return HttpResponseBadRequest(to_json(error))
 
             try:
-                organisation = Node.objects.get(id=model_json['organisation'])
-                dashboard.organisation = organisation
+                organisation = Node.objects.get(id=org_id)
+                model.organisation = organisation
             except Node.DoesNotExist:
                 error = {
                     'status': 'error',
@@ -153,7 +154,7 @@ class DashboardView(ResourceView):
 
         for key, value in model_json.iteritems():
             if key not in ['organisation', 'links']:
-                setattr(dashboard, key.replace('-', '_'), value)
+                setattr(model, key.replace('-', '_'), value)
 
         # for (key, value) in model_json.items():
         #     setattr(model, key, value)
@@ -174,6 +175,7 @@ class DashboardView(ResourceView):
     @staticmethod
     def serialize(model):
         return {
+            "id": str(model.id),
             "description_extra": model.description_extra,
             "strapline": model.strapline,
             "description": model.description,
@@ -259,28 +261,28 @@ def fetch_dashboard(dashboard_slug):
     return dashboard
 
 
-# @csrf_exempt
-# @require_http_methods(['GET'])
-# @permission_required('dashboard')
-# def get_dashboard_by_slug(user, request, slug=None):
-#     dashboard = get_object_or_404(Dashboard, slug=slug)
-#
-#     return HttpResponse(
-#         to_json(dashboard.serialize()),
-#         content_type='application/json'
-#     )
-#
-#
-# @csrf_exempt
-# @require_http_methods(['GET'])
-# @permission_required('dashboard')
-# def get_dashboard_by_uuid(user, request, dashboard_id=None):
-#     dashboard = get_object_or_404(Dashboard, id=dashboard_id)
-#
-#     return HttpResponse(
-#         to_json(dashboard.serialize()),
-#         content_type='application/json'
-#     )
+@csrf_exempt
+@require_http_methods(['GET'])
+@permission_required('dashboard')
+def get_dashboard_by_slug(user, request, slug=None):
+    dashboard = get_object_or_404(Dashboard, slug=slug)
+
+    return HttpResponse(
+        to_json(dashboard.serialize()),
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+@require_http_methods(['GET'])
+@permission_required('dashboard')
+def get_dashboard_by_uuid(user, request, dashboard_id=None):
+    dashboard = get_object_or_404(Dashboard, id=dashboard_id)
+
+    return HttpResponse(
+        to_json(dashboard.serialize()),
+        content_type='application/json'
+    )
 
 
 @csrf_exempt

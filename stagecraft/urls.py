@@ -97,4 +97,7 @@ urlpatterns = patterns(
     resource_url('dashboard',
                  dashboard_views.DashboardView,
                  id_matcher='<slug>[\w-]+'),
+    resource_url('dashboard',
+                 dashboard_views.DashboardView,
+                 id_matcher='<id>{}'.format(uuid_regexp)),
 )

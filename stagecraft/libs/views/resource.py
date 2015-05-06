@@ -184,16 +184,16 @@ class ResourceView(View):
 
     @method_decorator(atomic_view)
     def put(self, user, request, **kwargs):
+        id = kwargs.get(self.id_field, None)
+        user = kwargs.get('user', None)
 
         model_json, err = self._validate_json(request)
 
         if err:
             return err
 
-        id = model_json.get("id")
-
         try:
-            model = self.model.objects.get(**{self.id_field: id})
+            model = self.by_id(request, id, user=user)
         except self.model.DoesNotExist:
             return HttpResponse('model not found', status=404)
 
