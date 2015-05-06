@@ -302,4 +302,6 @@ class DashboardTestCase(TransactionTestCase):
         assert_that(calling(self.dashboard.department), raises(ValueError))
 
     def test_department_returns_none_when_organisation_is_none(self):
-        assert_that(self.dashboard.department(), is_(none()))
+        dashboard = DashboardFactory(status="published", title="title",
+                                     slug='slug3', organisation=None)
+        assert_that(dashboard.department(), is_(none()))

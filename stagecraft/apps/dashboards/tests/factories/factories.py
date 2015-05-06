@@ -4,6 +4,15 @@ from ...models import Dashboard, Link, ModuleType, Module
 from ....organisation.tests.factories import NodeFactory, NodeTypeFactory
 
 
+class DepartmentTypeFactory(NodeTypeFactory):
+    name = 'department'
+
+
+class DepartmentFactory(NodeFactory):
+    name = factory.Sequence(lambda n: 'department-%s' % n)
+    typeOf = factory.SubFactory(DepartmentTypeFactory)
+
+
 class DashboardFactory(factory.DjangoModelFactory):
 
     class Meta:
@@ -12,6 +21,7 @@ class DashboardFactory(factory.DjangoModelFactory):
     status = 'published'
     title = "title"
     slug = factory.Sequence(lambda n: 'slug%s' % n)
+    organisation = factory.SubFactory(DepartmentFactory)
 
 
 class LinkFactory(factory.DjangoModelFactory):
@@ -48,21 +58,12 @@ class ModuleFactory(factory.DjangoModelFactory):
     order = factory.Sequence(lambda n: n)
 
 
-class DepartmentTypeFactory(NodeTypeFactory):
-    name = 'department'
-
-
 class AgencyTypeFactory(NodeTypeFactory):
     name = 'agency'
 
 
 class ServiceTypeFactory(NodeTypeFactory):
     name = 'service'
-
-
-class DepartmentFactory(NodeFactory):
-    name = factory.Sequence(lambda n: 'department-%s' % n)
-    typeOf = factory.SubFactory(DepartmentTypeFactory)
 
 
 class AgencyFactory(NodeFactory):

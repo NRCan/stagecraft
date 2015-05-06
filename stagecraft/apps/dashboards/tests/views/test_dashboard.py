@@ -55,19 +55,16 @@ class DashboardViewsListTestCase(TestCase):
         assert_that(response_object[0]['url'], starts_with(internal_url))
 
     def test_list_dashboards_list_alphabetically(self):
-        DashboardFactory(slug='dashboard-1', title='Alpha')
-        DashboardFactory(slug='dashboard-2', title='Beta')
+        department = DepartmentFactory()
+        DashboardFactory(slug='dashboard-1', title='Alpha',
+                         organisation=department)
+        DashboardFactory(slug='dashboard-2', title='Beta',
+                         organisation=department)
         resp = self.client.get(
             '/dashboards',
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token')
 
         response_object = json.loads(resp.content)
-
-        print "*************************************"
-        print "*************************************"
-        print response_object
-        print "*************************************"
-        print "*************************************"
 
         assert_that(response_object[0]['title'], is_('Alpha'))
         assert_that(response_object[1]['title'], is_('Beta'))
@@ -114,8 +111,11 @@ class DashboardViewsListTestCase(TestCase):
         assert_that(resp['Access-Control-Allow-Origin'], equal_to('*'))
 
     def test_get_dashboards_only_caches_when_published(self):
-        DashboardFactory(slug='published_dashboard')
-        DashboardFactory(slug='unpublished_dashboard', published=False)
+        department = DepartmentFactory()
+        DashboardFactory(slug='published_dashboard', organisation=department)
+        DashboardFactory(slug='unpublished_dashboard',
+                         published=False,
+                         organisation=department)
 
         resp = self.client.get(
             '/public/dashboards', {'slug': 'published_dashboard'})
@@ -380,9 +380,9 @@ class DashboardViewsGetTestCase(TestCase):
 
     @with_govuk_signon(permissions=['dashboard'])
     def test_get_an_existing_dashboard_returns_a_dashboard(self):
-        dashboard = DashboardFactory(slug='slug1')
-        dashboard2 = DashboardFactory(slug='slug2')
-        dashboard3 = DashboardFactory(slug='slug3')
+        department = DepartmentFactory()
+        dashboard = DashboardFactory(slug='slug1',
+                                     organisation=department)
 
         resp = self.client.get(
             '/dashboard/{}'.format(dashboard.slug),
@@ -399,7 +399,7 @@ class DashboardViewsGetTestCase(TestCase):
                     # "links": [],
                     "title": "title",
                     "tagline": "",
-                    "organisation": None,
+                    "organisation": str(department.id),
                     # "modules": [],
                     "dashboard_type": "transaction",
                     "slug": dashboard.slug,
@@ -419,7 +419,7 @@ class DashboardViewsUpdateTestCase(TestCase):
 
     @with_govuk_signon(permissions=['dashboard'])
     def test_change_title_of_dashboard_changes_title_of_dashboard(self):
-        dashboard = DashboardFactory()
+        dashboard = DashboardFactory(slug="slug-1")
         dashboard_data = dashboard.serialize()
 
         dashboard_data['title'] = 'foo'
@@ -437,8 +437,12 @@ class DashboardViewsUpdateTestCase(TestCase):
 
     @with_govuk_signon(permissions=['dashboard'])
     def test_putting_to_nonexistant_dashboard_returns_404(self):
-        dashboard = DashboardFactory()
-        dashboard_data = dashboard.serialize()
+        dashboard_data = {
+            'status': 'published',
+            'title': 'title',
+            'slug': 'nonsense',
+            'id': '1234de'
+        }
 
         resp = self.client.put(
             '/dashboard/nonsense',
@@ -690,8 +694,10 @@ class DashboardViewsCreateTestCase(TestCase):
     @with_govuk_signon(permissions=['dashboard'])
     def test_create_dashboard_with_organisation(self):
         department = DepartmentFactory()
-        data = self._get_dashboard_payload(
-            organisation='{}'.format(department.id))
+        data = self._get_dashboard_payload()
+        data["organisation"] = {
+            "id": str(department.id)
+        }
 
         resp = self.client.post(
             '/dashboard', json.dumps(data),
@@ -727,7 +733,7 @@ class DashboardViewsCreateTestCase(TestCase):
         assert_that(Dashboard.objects.count(), equal_to(0))
 
     @with_govuk_signon(permissions=['dashboard'])
-    def test_create_dashboard_ok_with_no_organisation(self):
+    def test_create_dashboard_not_ok_with_no_organisation(self):
         data = self._get_dashboard_payload(
             organisation=None)
 
@@ -736,8 +742,7 @@ class DashboardViewsCreateTestCase(TestCase):
             content_type="application/json",
             HTTP_AUTHORIZATION='Bearer correct-token')
 
-        assert_that(resp.status_code, equal_to(200))
-        assert_that(Dashboard.objects.count(), equal_to(1))
+        assert_that(resp.status_code, equal_to(400))
 
     @with_govuk_signon(permissions=['dashboard'])
     def test_create_dashboard_ok_with_links(self):
@@ -839,6 +844,7 @@ class DashboardViewsCreateTestCase(TestCase):
     @with_govuk_signon(permissions=['dashboard'])
     def test_create_dashboard_with_reused_slug_is_bad_request(self):
         data = self._get_dashboard_payload()
+        data["organisation"] = {"id": "1234dc-4566c"}
 
         resp = self.client.post(
             '/dashboard', json.dumps(data),
