@@ -198,6 +198,36 @@ class ResourceView(View):
 
         return self._response(model)
 
+    @method_decorator(atomic_view)
+    def put(self, user, request, **kwargs):
+        id_field, id = self._find_id(kwargs)
+        user = kwargs.get('user', None)
+
+        model_json, err = self._validate_json(request)
+
+        if err:
+            return err
+
+        model = self.by_id(request, id_field, id, user=user)
+
+        if model is None:
+            return HttpResponse('model not found', status=404)
+
+        err = self.update_model(model, model_json, request)
+        if err:
+            return err
+
+        err = self._validate_model(model)
+        if err:
+            return err
+
+        try:
+            model.save()
+        except (DataError, IntegrityError) as err:
+            return HttpResponse('error saving model: {}'.format(err))
+
+        return self._response(model)
+
     def _validate_json(self, request):
         if request.META.get('CONTENT_TYPE', '').lower() != 'application/json':
             return None, HttpResponse('bad content type', status=415)
