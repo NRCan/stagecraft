@@ -646,8 +646,14 @@ class DashboardViewsUpdateTestCase(TestCase):
         dashboard_data['links'][0]['url'] = 'https://gov.uk/new-link'
         dashboard_data['links'][0]['title'] = 'new link title'
 
+        # resp = self.client.put(
+        #     '/dashboard/{}'.format(dashboard.id),
+        #     json.dumps(dashboard_data, cls=JsonEncoder),
+        #     content_type="application/json",
+        #     HTTP_AUTHORIZATION='Bearer correct-token')
+
         resp = self.client.put(
-            '/dashboard/{}'.format(dashboard.id),
+            '/dashboard/{}'.format(dashboard.slug),
             json.dumps(dashboard_data, cls=JsonEncoder),
             content_type="application/json",
             HTTP_AUTHORIZATION='Bearer correct-token')

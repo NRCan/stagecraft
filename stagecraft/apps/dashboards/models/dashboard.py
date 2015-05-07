@@ -383,7 +383,8 @@ class Link(models.Model):
         return {
             'title': self.title,
             'type': self.link_type,
-            'url': self.url
+            'url': self.url,
+            'id': self.id
         }
 
     class Meta:

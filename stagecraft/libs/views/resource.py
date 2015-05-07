@@ -193,6 +193,7 @@ class ResourceView(View):
             return err
 
         model = self.by_id(request, id, user=user)
+
         if model is None:
             return HttpResponse('model not found', status=404)
 

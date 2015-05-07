@@ -14,7 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.vary import vary_on_headers
 from .module import add_module_to_dashboard
-from stagecraft.apps.dashboards.models.dashboard import Dashboard
+from stagecraft.apps.dashboards.models.dashboard import Dashboard, Link
 from stagecraft.apps.organisation.models import Node
 from stagecraft.libs.authorization.http import permission_required
 from stagecraft.libs.validation.validation import is_uuid
@@ -122,7 +122,6 @@ class DashboardView(ResourceView):
 
     def update_model(self, model, model_json, request):
 
-        # if model_json.get('organisation', None).get("id"):
         if 'organisation' in model_json:
             org_id = model_json.get('organisation', None).get("id")
             if not is_uuid(org_id):
@@ -157,8 +156,17 @@ class DashboardView(ResourceView):
             if key not in ['organisation', 'links']:
                 setattr(model, key.replace('-', '_'), value)
 
-        # for (key, value) in model_json.items():
-        #     setattr(model, key, value)
+        if 'links' in model_json:
+            for link_data in model_json['links']:
+                if link_data['type'] == 'transaction':
+                    link, _ = model.link_set.get_or_create(
+                        link_type='transaction')
+                    link.url = link_data['url']
+                    link.title = link_data['title']
+                    link.save()
+                else:
+                    model.link_set.create(link_type=link_data.pop('type'),
+                                              **link_data)
 
     @staticmethod
     def serialize_list(model):
