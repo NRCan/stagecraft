@@ -18,7 +18,7 @@ from stagecraft.apps.dashboards.models.dashboard import Dashboard, Link
 from stagecraft.apps.organisation.models import Node
 from stagecraft.libs.authorization.http import permission_required
 from stagecraft.libs.validation.validation import is_uuid
-from stagecraft.libs.views.resource import ResourceView
+from stagecraft.libs.views.resource import ResourceView, UUID_RE_STRING
 from stagecraft.libs.views.utils import to_json, create_error
 from stagecraft.libs.views.transaction import atomic_view
 from ..models.module import Module
@@ -29,7 +29,11 @@ logger = logging.getLogger(__name__)
 
 class DashboardView(ResourceView):
     model = Dashboard
-    id_field = 'slug'
+
+    id_fields = {
+        'id': UUID_RE_STRING,
+        'slug': '[\w-]+',
+    }
 
     schema = {
         "$schema": "http://json-schema.org/schema#",

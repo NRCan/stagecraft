@@ -32,13 +32,18 @@ UUID_RE = re.compile(UUID_RE_STRING)
 FORMAT_CHECKER = FormatChecker()
 
 
-def resource_url(ident, cls, id_matcher=None):
-    id_matcher = id_matcher if id_matcher else '<id>{}'.format(
-        UUID_RE_STRING)
+def resource_url(ident, cls):
     return url(
-        r'^{}(?:/(?P{})(?:/(?P<sub_resource>[a-z]+))?)?'.format(
-            ident, id_matcher),
+        resource_re_string(ident, cls),
         csrf_exempt(cls.as_view()))
+
+
+def resource_re_string(ident, cls):
+    id_matchers = \
+        ['(?P<{}>{})'.format(k, r) for k, r in cls.id_fields.items()]
+    id_matcher = '({})'.format('|'.join(id_matchers))
+    return r'^{}(?:/{}(?:/(?P<sub_resource>[a-z]+))?)?'.format(
+        ident, id_matcher)
 
 
 @FORMAT_CHECKER.checks('uuid')
@@ -50,7 +55,9 @@ def is_uuid(instance):
 class ResourceView(View):
 
     model = None
-    id_field = 'id'
+    id_fields = {
+        'id': UUID_RE_STRING,
+    }
     generated_id = True
     schema = {}
     sub_resources = {}
@@ -103,8 +110,8 @@ class ResourceView(View):
         else:
             return query_set
 
-    def by_id(self, request, id, user=None):
-        get_args = {self.id_field: id}
+    def by_id(self, request, id_field, id, user=None):
+        get_args = {id_field: id}
 
         try:
             model = self.model.objects.get(**get_args)
@@ -123,13 +130,12 @@ class ResourceView(View):
         pass
 
     def get(self, request, **kwargs):
-        id = kwargs.get(self.id_field, None)
+        id_field, id = self._find_id(kwargs)
         user = kwargs.get('user', None)
-        order_by = kwargs.get('order_by', None)
         sub_resource = kwargs.get('sub_resource', None)
 
         if id is not None:
-            model = self.by_id(request, id, user=user)
+            model = self.by_id(request, id_field, id, user=user)
             if model is None:
                 return HttpResponse('resource not found', status=404)
             elif sub_resource is not None:
@@ -137,8 +143,16 @@ class ResourceView(View):
             else:
                 return self._response(model)
         else:
-            return self._response(self.list(request, user=user),
-                                  order_by=order_by)
+            return self._response(self.list(request, user=user))
+
+    def _find_id(self, args):
+        for key, regex in self.id_fields.items():
+            compiled_regex = re.compile(regex)
+            if key in args and \
+                    compiled_regex.match(str(args[key])) is not None:
+                return key, args[key]
+
+        return None, None
 
     def _user_missing_model_permission(self, user, model):
         user_is_not_admin = 'admin' not in user['permissions']
@@ -182,36 +196,6 @@ class ResourceView(View):
 
         return self._response(model)
 
-    @method_decorator(atomic_view)
-    def put(self, user, request, **kwargs):
-        id = kwargs.get(self.id_field, None)
-        user = kwargs.get('user', None)
-
-        model_json, err = self._validate_json(request)
-
-        if err:
-            return err
-
-        model = self.by_id(request, id, user=user)
-
-        if model is None:
-            return HttpResponse('model not found', status=404)
-
-        err = self.update_model(model, model_json, request)
-        if err:
-            return err
-
-        err = self._validate_model(model)
-        if err:
-            return err
-
-        try:
-            model.save()
-        except (DataError, IntegrityError) as err:
-            return HttpResponse('error saving model: {}'.format(err))
-
-        return self._response(model)
-
     def _validate_json(self, request):
         if request.META.get('CONTENT_TYPE', '').lower() != 'application/json':
             return None, HttpResponse('bad content type', status=415)
@@ -233,10 +217,10 @@ class ResourceView(View):
         return model_json, None
 
     def _get_or_create_model(self, model_json):
-        if self.id_field in model_json:
-            id = model_json[self.id_field]
+        id_field, id = self._find_id(model_json)
+        if id is not None:
             try:
-                model = self.model.objects.get(**{self.id_field: id})
+                model = self.model.objects.get(**{id_field: id})
             except self.model.DoesNotExist:
                 return HttpResponse(
                     'model with id {} not found'.format(id))
@@ -262,18 +246,10 @@ class ResourceView(View):
                 'validation errors:\n{}'.format('\n'.join(messages)),
                 status=400)
 
-    def _response(self, model, order_by=None):
+    def _response(self, model):
         if hasattr(self.__class__, 'serialize'):
             if hasattr(model, '__iter__'):
-                if hasattr(self.__class__, 'serialize_list'):
-                    lst = [self.__class__.serialize_list(m) for m in model]
-                else:
-                    lst = [self.__class__.serialize(m) for m in model]
-
-                if order_by:
-                    obj = sorted(lst, key=lambda k: k[order_by])
-                else:
-                    obj = lst
+                obj = [self.__class__.serialize(m) for m in model]
             else:
                 obj = self.__class__.serialize(model)
         else:
