@@ -162,7 +162,6 @@ class DashboardView(ResourceView):
 
         if 'links' in model_json:
             for link_data in model_json['links']:
-                print "LINK DATA {}".format(link_data)
                 if link_data['type'] == 'transaction':
                     link, _ = model.link_set.get_or_create(
                         link_type='transaction')
@@ -208,6 +207,14 @@ class DashboardView(ResourceView):
         }
         if model.organisation:
             serialized_data["organisation"] = str(model.organisation.id)
+
+        if model.link_set:
+            links = []
+            if model.get_transaction_link():
+                links.append(model.get_transaction_link().serialize())
+            if model.get_other_links():
+                links.append(model.get_other_links().serialize())
+            serialized_data["links"] = links
 
         return serialized_data
 
