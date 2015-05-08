@@ -90,6 +90,10 @@ class NodeView(ResourceView):
     def post(self, user, request, **kwargs):
         return super(NodeView, self).post(user, request, **kwargs)
 
+    @method_decorator(permission_required('organisation'))
+    def put(self, user, request, **kwargs):
+        return HttpResponse(status=405)
+
     def from_resource(self, request, identifier, model):
         if identifier == 'ancestors':
             include_self = request.GET.get('self', 'false') == 'true'
