@@ -21,7 +21,6 @@ class DashboardFactory(factory.DjangoModelFactory):
     status = 'published'
     title = "title"
     slug = factory.Sequence(lambda n: 'slug%s' % n)
-    organisation = factory.SubFactory(DepartmentFactory)
 
 
 class LinkFactory(factory.DjangoModelFactory):

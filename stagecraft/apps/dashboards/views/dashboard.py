@@ -162,6 +162,7 @@ class DashboardView(ResourceView):
 
         if 'links' in model_json:
             for link_data in model_json['links']:
+                print "LINK DATA {}".format(link_data)
                 if link_data['type'] == 'transaction':
                     link, _ = model.link_set.get_or_create(
                         link_type='transaction')
@@ -170,7 +171,7 @@ class DashboardView(ResourceView):
                     link.save()
                 else:
                     model.link_set.create(link_type=link_data.pop('type'),
-                                              **link_data)
+                                          **link_data)
 
     @staticmethod
     def serialize_list(model):
@@ -187,15 +188,13 @@ class DashboardView(ResourceView):
 
     @staticmethod
     def serialize(model):
-        return {
+        serialized_data = {
             "id": str(model.id),
             "description_extra": model.description_extra,
             "strapline": model.strapline,
             "description": model.description,
-            # "links": model.links,
             "title": model.title,
             "tagline": model.tagline,
-            "organisation": str(model.organisation.id),
             # "modules": model.modules,
             "dashboard_type": model.dashboard_type,
             "slug": model.slug,
@@ -207,6 +206,10 @@ class DashboardView(ResourceView):
             "business_model": model.business_model,
             "other_notes": model.other_notes
         }
+        if model.organisation:
+            serialized_data["organisation"] = str(model.organisation.id)
+
+        return serialized_data
 
 
 def dashboards_for_spotlight(request):

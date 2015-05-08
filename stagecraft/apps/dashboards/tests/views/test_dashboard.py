@@ -641,22 +641,23 @@ class DashboardViewsUpdateTestCase(TestCase):
     @with_govuk_signon(permissions=['dashboard'])
     def test_update_existing_link(self):
         dashboard = DashboardFactory(title='test dashboard')
+        dashboard.organisation = DepartmentFactory()
         link = LinkFactory(dashboard=dashboard)
         dashboard_data = dashboard.serialize()
         dashboard_data['links'][0]['url'] = 'https://gov.uk/new-link'
         dashboard_data['links'][0]['title'] = 'new link title'
 
-        # resp = self.client.put(
-        #     '/dashboard/{}'.format(dashboard.id),
-        #     json.dumps(dashboard_data, cls=JsonEncoder),
-        #     content_type="application/json",
-        #     HTTP_AUTHORIZATION='Bearer correct-token')
-
         resp = self.client.put(
-            '/dashboard/{}'.format(dashboard.slug),
+            '/dashboard/{}'.format(dashboard.id),
             json.dumps(dashboard_data, cls=JsonEncoder),
             content_type="application/json",
             HTTP_AUTHORIZATION='Bearer correct-token')
+
+        # resp = self.client.put(
+        #     '/dashboard/{}'.format(dashboard.slug),
+        #     json.dumps(dashboard_data, cls=JsonEncoder),
+        #     content_type="application/json",
+        #     HTTP_AUTHORIZATION='Bearer correct-token')
 
         transaction_links = dashboard.link_set.filter(link_type='transaction')
         assert_that(transaction_links, has_length(1))
