@@ -34,6 +34,10 @@ class NodeTypeView(ResourceView):
     def post(self, user, request, **kwargs):
         return super(NodeTypeView, self).post(user, request, **kwargs)
 
+    @method_decorator(permission_required('organisation'))
+    def put(self, user, request, **kwargs):
+        return HttpResponse(status=405)
+
     def update_model(self, model, model_json, request):
         model.name = model_json['name']
 
