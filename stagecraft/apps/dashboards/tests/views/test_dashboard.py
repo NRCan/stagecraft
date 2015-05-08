@@ -420,6 +420,7 @@ class DashboardViewsUpdateTestCase(TestCase):
     @with_govuk_signon(permissions=['dashboard'])
     def test_change_title_of_dashboard_changes_title_of_dashboard(self):
         dashboard = DashboardFactory(slug="slug-1")
+        dashboard.organisation = DepartmentFactory()
         dashboard_data = dashboard.serialize()
 
         dashboard_data['title'] = 'foo'
