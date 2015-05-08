@@ -47,6 +47,10 @@ class ModuleTypeView(ResourceView):
     def post(self, user, request, **kwargs):
         return super(ModuleTypeView, self).post(user, request, **kwargs)
 
+    @method_decorator(permission_required('dashboard'))
+    def put(self, user, request, **kwargs):
+        return HttpResponse(status=405)
+
     def update_model(self, model, model_json, request):
         for (key, value) in model_json.items():
             setattr(model, key, value)
