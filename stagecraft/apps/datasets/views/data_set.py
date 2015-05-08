@@ -110,6 +110,11 @@ class DataSetView(ResourceView):
     def post(self, user, request, **kwargs):
         return super(DataSetView, self).post(user, request, **kwargs)
 
+    @method_decorator(permission_required('signin'))
+    @method_decorator(vary_on_headers('Authorization'))
+    def put(self, user, request, **kwargs):
+        return HttpResponse(status=405)
+
     def update_model(self, model, model_json, request):
         try:
             data_group = DataGroup.objects.get(name=model_json['data_group'])
