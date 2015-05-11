@@ -60,6 +60,7 @@ class DashboardViewsListTestCase(TestCase):
         resp = self.client.get(
             '/dashboards',
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token')
+
         response_object = json.loads(resp.content)
 
         assert_that(response_object[0]['title'], is_('Alpha'))
@@ -363,17 +364,12 @@ class DashboardViewsListTestCase(TestCase):
 class DashboardViewsGetTestCase(TestCase):
 
     @with_govuk_signon(permissions=['dashboard'])
-    def test_get_a_dashboard_with_incorrect_id_or_no_id_returns_404(self):
+    def test_get_a_dashboard_with_incorrect_id_returns_404(self):
         resp = self.client.get(
-            '/dashboard/', HTTP_AUTHORIZATION='Bearer correct-token'
-        )
-        second_response = self.client.get(
             '/dashboard/non-existant-m8',
             HTTP_AUTHORIZATION='Bearer correct-token'
         )
-
         assert_that(resp.status_code, equal_to(404))
-        assert_that(second_response.status_code, equal_to(404))
 
     @with_govuk_signon(permissions=['dashboard'])
     def test_get_an_existing_dashboard_returns_a_dashboard(self):
@@ -394,7 +390,6 @@ class DashboardViewsGetTestCase(TestCase):
                     "links": [],
                     "title": "title",
                     "tagline": "",
-                    "organisation": None,
                     "modules": [],
                     "dashboard_type": "transaction",
                     "slug": dashboard.slug,

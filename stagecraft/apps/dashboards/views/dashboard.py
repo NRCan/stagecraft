@@ -272,8 +272,10 @@ class DashboardView(ResourceView):
 
     id_fields = {
         'id': UUID_RE_STRING,
-        'slug': '[\w-]',
+        'slug': '[\w-]+',
     }
+
+    order_by = "title"
 
     schema = {
         "$schema": "http://json-schema.org/schema#",
@@ -351,9 +353,7 @@ class DashboardView(ResourceView):
 
     @method_decorator(never_cache)
     def get(self, request, **kwargs):
-        self.order_by = 'title'
-        return super(DashboardView, self).get(request,
-                                              order_by=self.order_by, **kwargs)
+        return super(DashboardView, self).get(request, **kwargs)
 
     @method_decorator(permission_required('dashboard'))
     def post(self, user, request, **kwargs):
@@ -413,7 +413,7 @@ class DashboardView(ResourceView):
                                           **link_data)
 
     @staticmethod
-    def serialize_list(model):
+    def serialize_for_list(model):
         return {
             'id': str(model.id),
             'title': model.title,
@@ -434,7 +434,8 @@ class DashboardView(ResourceView):
             "description": model.description,
             "title": model.title,
             "tagline": model.tagline,
-            # "modules": model.modules,
+            "modules": [m.serialize() for m in model.module_set.filter(
+                parent=None).order_by('order')],
             "dashboard_type": model.dashboard_type,
             "slug": model.slug,
             "improve_dashboard_message": model.improve_dashboard_message,
