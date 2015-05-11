@@ -38,7 +38,7 @@ class DashboardViewsListTestCase(TestCase):
         resp = self.client.get(
             '/dashboards',
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token')
-        response_object = json.loads(resp.content)['dashboards']
+        response_object = json.loads(resp.content)
 
         public_url = ('http://spotlight.development.performance.service'
                       '.gov.uk/performance/dashboard')
@@ -60,7 +60,7 @@ class DashboardViewsListTestCase(TestCase):
         resp = self.client.get(
             '/dashboards',
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token')
-        response_object = json.loads(resp.content)['dashboards']
+        response_object = json.loads(resp.content)
 
         assert_that(response_object[0]['title'], is_('Alpha'))
         assert_that(response_object[1]['title'], is_('Beta'))

@@ -9,14 +9,17 @@ from django.http import (HttpResponse,
                          HttpResponseBadRequest,
                          HttpResponseNotFound)
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_control, never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.vary import vary_on_headers
 
 from stagecraft.apps.dashboards.models.dashboard import Dashboard
 from stagecraft.apps.organisation.models import Node
 from stagecraft.libs.authorization.http import permission_required
 from stagecraft.libs.validation.validation import is_uuid
+from stagecraft.libs.views.resource import ResourceView, UUID_RE_STRING
 from stagecraft.libs.views.utils import to_json, create_error
 from stagecraft.libs.views.transaction import atomic_view
 from .module import add_module_to_dashboard
@@ -262,3 +265,195 @@ def dashboard(user, request, identifier=None):
 
     return HttpResponse(to_json(dashboard.serialize()),
                         content_type='application/json')
+
+
+class DashboardView(ResourceView):
+    model = Dashboard
+
+    id_fields = {
+        'id': UUID_RE_STRING,
+        'slug': '[\w-]',
+    }
+
+    schema = {
+        "$schema": "http://json-schema.org/schema#",
+        "type": "object",
+        "properties": {
+            "objects": {
+                "type": "string",
+            },
+            "slug": {
+                "type": "string",
+            },
+            "dashboard_type": {
+                "type": "string",
+            },
+            "page_type": {
+                "type": "string",
+            },
+            "title": {
+                "type": "string",
+            },
+            "description": {
+                "type": "string",
+            },
+            "description_extra": {
+                "type": "string",
+            },
+            "costs": {
+                "type": "string",
+            },
+            "other_notes": {
+                "type": "string",
+            },
+            "customer_type": {
+                "type": "string",
+            },
+            "business_model": {
+                "type": "string",
+            },
+            "improve_dashboard_message": {
+                "type": "boolean",
+            },
+            "strapline": {
+                "type": "string",
+            },
+            "tagline": {
+                "type": "string",
+            },
+            "organisation": {
+                "type": "object",
+            },
+            "published": {
+                "type": "boolean",
+            },
+            "links": {
+                "type": "array",
+            },
+            "modules": {
+                "type": "array",
+            },
+            "status": {
+                "type": "string",
+            },
+            "id": {
+                "type": "string",
+            }
+        },
+        "required": ["slug", "title"],
+        "additionalProperties": True,
+    }
+
+    list_filters = {
+        'id': 'id__iexact',
+        'slug': 'slug_iexact'
+    }
+
+    @method_decorator(never_cache)
+    def get(self, request, **kwargs):
+        self.order_by = 'title'
+        return super(DashboardView, self).get(request,
+                                              order_by=self.order_by, **kwargs)
+
+    @method_decorator(permission_required('dashboard'))
+    def post(self, user, request, **kwargs):
+        return super(DashboardView, self).post(user, request, **kwargs)
+
+    @method_decorator(permission_required('dashboard'))
+    @method_decorator(vary_on_headers('Authorization'))
+    def put(self, user, request, **kwargs):
+        return super(DashboardView, self).put(user, request, **kwargs)
+
+    def update_model(self, model, model_json, request):
+
+        if 'organisation' in model_json:
+            org_id = model_json.get('organisation', None).get("id")
+            if not is_uuid(org_id):
+                error = {
+                    'status': 'error',
+                    'message': 'Organisation must be a valid UUID',
+                    'errors': [create_error(
+                        request, 400,
+                        detail='Organisation must be a valid UUID'
+                    )],
+                }
+                return HttpResponseBadRequest(to_json(error))
+
+            try:
+                organisation = Node.objects.get(id=org_id)
+                model.organisation = organisation
+            except Node.DoesNotExist:
+                error = {
+                    'status': 'error',
+                    'message': 'Organisation does not exist',
+                    'errors': [
+                        create_error(
+                            request,
+                            404,
+                            detail='Organisation does not exist'
+                        )
+                    ]
+                }
+                return HttpResponseBadRequest(to_json(error))
+
+        for key, value in model_json.iteritems():
+            if key not in ['organisation', 'links']:
+                setattr(model, key.replace('-', '_'), value)
+
+        if 'links' in model_json:
+            for link_data in model_json['links']:
+                if link_data['type'] == 'transaction':
+                    link, _ = model.link_set.get_or_create(
+                        link_type='transaction')
+                    link.url = link_data['url']
+                    link.title = link_data['title']
+                    link.save()
+                else:
+                    model.link_set.create(link_type=link_data.pop('type'),
+                                          **link_data)
+
+    @staticmethod
+    def serialize_list(model):
+        return {
+            'id': str(model.id),
+            'title': model.title,
+            'url': '{0}/dashboard/{1}'.format(
+                settings.APP_ROOT, model.slug),
+            'public-url': '{0}/performance/{1}'.format(
+                settings.GOVUK_ROOT, model.slug),
+            'status': model.status,
+            'published': model.published
+        }
+
+    @staticmethod
+    def serialize(model):
+        serialized_data = {
+            "id": str(model.id),
+            "description_extra": model.description_extra,
+            "strapline": model.strapline,
+            "description": model.description,
+            "title": model.title,
+            "tagline": model.tagline,
+            # "modules": model.modules,
+            "dashboard_type": model.dashboard_type,
+            "slug": model.slug,
+            "improve_dashboard_message": model.improve_dashboard_message,
+            "customer_type": model.customer_type,
+            "costs": model.costs,
+            "page_type": model.page_type,
+            "published": model.published,
+            "business_model": model.business_model,
+            "other_notes": model.other_notes
+        }
+        if model.organisation:
+            serialized_data["organisation"] = str(model.organisation.id)
+
+        if model.link_set:
+            links = []
+            if model.get_transaction_link():
+                links.append(model.get_transaction_link().serialize())
+            if model.get_other_links():
+                links.append(model.get_other_links().serialize())
+            serialized_data["links"] = links
+
+        return serialized_data
