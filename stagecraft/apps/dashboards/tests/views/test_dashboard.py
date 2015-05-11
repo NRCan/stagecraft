@@ -856,6 +856,7 @@ class DashboardViewsCreateTestCase(TestCase):
             '/dashboard', json.dumps(data),
             content_type='application/json',
             HTTP_AUTHORIZATION='Bearer correct-token')
+
         response_dictionary = json.loads(resp.content)
         expected_message = "strapline: Value u'Invalid' is not a valid choice."
 

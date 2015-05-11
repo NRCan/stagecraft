@@ -324,7 +324,13 @@ class DashboardView(ResourceView):
                 "type": "string",
             },
             "organisation": {
-                "type": "object",
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    {"type": "null"},
+                ]
             },
             "published": {
                 "type": "boolean",
@@ -366,8 +372,8 @@ class DashboardView(ResourceView):
 
     def update_model(self, model, model_json, request):
 
-        if 'organisation' in model_json:
-            org_id = model_json.get('organisation', None).get("id")
+        if model_json.get('organisation'):
+            org_id = model_json['organisation']
             if not is_uuid(org_id):
                 error = {
                     'status': 'error',
@@ -400,6 +406,7 @@ class DashboardView(ResourceView):
             if key not in ['organisation', 'links']:
                 setattr(model, key.replace('-', '_'), value)
 
+    def update_relationships(self, model, model_json, request):
         if 'links' in model_json:
             for link_data in model_json['links']:
                 if link_data['type'] == 'transaction':
