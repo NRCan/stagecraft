@@ -5,7 +5,7 @@ from mock import Mock
 from hamcrest import (
     assert_that, is_, calling, raises, is_not,
     instance_of, starts_with, has_key, equal_to,
-    has_entry)
+    has_entry, contains)
 from unittest import TestCase
 
 from django.http import HttpRequest, HttpResponse
@@ -53,46 +53,11 @@ def patched_validate(self):
 Node.validate = patched_validate
 
 
-class TestResourceViewChild(ResourceView):
-    model = Node
-    schema = {
-        "$schema": "http://json-schema.org/schema#",
-        "type": "object",
-        "properties": {
-            "type_id": {
-                "type": "string",
-                "format": "uuid",
-            },
-            "name": {"type": "string"},
-            "slug": {"type": "string"},
-            "abbreviation": {"type": "string"},
-        },
-        "required": ["type_id", "name"],
-        "additionalProperties": False,
-    }
-    calls = []
-
-    def from_resource(self, request, sub_resource, model):
-        self.calls.append((request, sub_resource, model))
-        return model
-
-    @staticmethod
-    def serialize(model):
-        return {
-            'id': str(model.id),
-            'name': model.name,
-            "foo": "bar"
-        }
-
-
 class TestResourceView(ResourceView):
 
     model = Node
     list_filters = {
         'name': 'name__iexact',
-    }
-    sub_resources = {
-        'child': TestResourceViewChild()
     }
     schema = {
         "$schema": "http://json-schema.org/schema#",
@@ -112,7 +77,7 @@ class TestResourceView(ResourceView):
 
     was_saved = False
 
-    def update_relationships(self, model, model_json, request):
+    def update_relationships(self, model, model_json, request, parent):
         self.was_saved = model.pk is not None
 
     def update_model(self, model, model_json, request):
@@ -135,6 +100,26 @@ class TestResourceView(ResourceView):
             'id': str(model.id),
             'name': model.name,
         }
+
+
+class TestResourceViewChild(TestResourceView):
+
+    def update_relationships(self, model, model_json, request, parent):
+        if parent:
+            model.parents.add(parent)
+
+    @staticmethod
+    def serialize(model):
+        return {
+            'id': str(model.id),
+            'name': model.name,
+            "foo": "bar"
+        }
+
+
+TestResourceView.sub_resources = {
+    'child': TestResourceViewChild(),
+}
 
 
 class TestResourceViewMultipleIDs(ResourceView):
@@ -163,7 +148,7 @@ class ResourceViewTestCase(TestCase):
         for (k, v) in query.items():
             request.GET[k] = v
 
-        response = view.get(request, **args)
+        response = view.get(None, request, **args)
 
         assert_that(response, instance_of(HttpResponse))
 
@@ -190,11 +175,12 @@ class ResourceViewTestCase(TestCase):
             raise Exception('Invalid action {}'.format(action))
 
         assert_that(response, instance_of(HttpResponse))
-        print response.content
 
         try:
             json_response = json.loads(response.content)
         except ValueError:
+            print 'Cannot parse as JSON'
+            print response.content
             json_response = None
 
         return response.status_code, json_response, view
@@ -390,9 +376,10 @@ class ResourceViewTestCase(TestCase):
         node = NodeFactory()
         status_code, sub_resource, _ = self.get(args={
             "id": node.id,
-            "sub_resource": "child"})
+            "sub_resource": "child"
+        })
         assert_that(status_code, is_(200))
-        assert_that(sub_resource, has_entry("foo", "bar"))
+        assert_that(sub_resource, contains(has_entry("foo", "bar")))
 
     def test_if_post_with_id_bad_request(self):
         status_code, _, _ = self.post(args={
@@ -402,22 +389,17 @@ class ResourceViewTestCase(TestCase):
 
     def test_post_to_a_sub_resource(self):
         node = NodeFactory()
+        node_type = NodeTypeFactory()
         status_code, _, view = self.post(args={
             'id': node.id,
             'sub_resource': 'child',
         }, body=json.dumps({
-            'type_id': 'fc1457d3-d4fe-41a5-8717-b412bee388e4',
+            'type_id': str(node_type.id),
+            'slug': 'a-node',
             'name': 'a-node',
         }))
         assert_that(status_code, is_(200))
-        assert_that(
-            len(view.sub_resources['child'].calls),
-            is_(1)
-        )
-        assert_that(
-            view.sub_resources['child'].calls[0][0].method,
-            is_('POST')
-        )
+        assert_that(node.node_set.count(), is_(1))
 
     def test_post_404s_if_parent_doesnt_exist(self):
         status_code, _, view = self.post(args={
@@ -434,4 +416,3 @@ class ResourceViewTestCase(TestCase):
             'sub_resource': 'child',
         }, body=json.dumps({}))
         assert_that(status_code, is_(400))
-        assert_that(response.content, is_('asd'))

@@ -56,6 +56,7 @@ def list_modules_on_dashboard(request, dashboard):
 
 
 def add_module_to_dashboard(dashboard, module_settings, parent_module=None):
+    print module_settings
 
     def make_error(msg_part):
         return "Error in module {0} (slug '{1}') - message: '{2}'".format(
@@ -212,10 +213,19 @@ class ModuleView(ResourceView):
         "additionalProperties": False,
     }
 
+    def list(self, request, **kwargs):
+        query_set = super(ModuleView, self).list(request, **kwargs)
+        
+        if 'parent' in kwargs:
+            query_set = query_set.filter(dashboard=kwargs['parent'].id)
+
+        return query_set
+
     @csrf_exempt
     @method_decorator(never_cache)
-    def get(self, request, **kwargs):
-        return super(ModuleView, self).get(request, **kwargs)
+    @method_decorator(permission_required())
+    def get(self, user, request, **kwargs):
+        return super(ModuleView, self).get(user, request, **kwargs)
 
     @method_decorator(permission_required('dashboard'))
     def post(self, user, request, **kwargs):
@@ -260,8 +270,9 @@ class ModuleTypeView(ResourceView):
     }
 
     @method_decorator(never_cache)
-    def get(self, request, **kwargs):
-        return super(ModuleTypeView, self).get(request, **kwargs)
+    @method_decorator(permission_required())
+    def get(self, user, request, **kwargs):
+        return super(ModuleTypeView, self).get(user, request, **kwargs)
 
     @method_decorator(permission_required('dashboard'))
     def post(self, user, request, **kwargs):

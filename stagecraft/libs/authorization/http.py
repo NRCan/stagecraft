@@ -6,7 +6,7 @@ from stagecraft.apps.datasets.models import OAuthUser
 from stagecraft.libs.validation.validation import extract_bearer_token
 from stagecraft.libs.views.utils import create_error
 from django.conf import settings
-from django.http import (HttpResponseForbidden, HttpResponse)
+from django.http import (HttpResponseForbidden, HttpResponse, HttpRequest)
 from django_statsd.clients import statsd
 
 audit_logger = logging.getLogger('stagecraft.audit')
@@ -81,28 +81,43 @@ def forbidden(request, message):
     return HttpResponseForbidden(to_json(doc))
 
 
-def permission_required(permission):
+anon_user = {
+    "email": "anon.user@digital.cabinet-office.gov.uk",
+    "name": "anon",
+    "organisation_slug": "cabinet-office",
+    "permissions": [
+    ],
+    "uid": "00000000-0000-0000-0000-000000000000"
+}
+
+
+def permission_required(permission=None):
     def decorator(a_view):
         def _wrapped_view(request, *args, **kwargs):
+            if not isinstance(request, HttpRequest):
+                request = args[0]
 
-            access_token = extract_bearer_token(request)
-            if access_token is None:
-                return unauthorized(request, 'no access token given.')
-
-            (user, has_permission) = check_permission(access_token, permission)
-
-            if user is None:
-                return unauthorized(request, 'invalid access token.')
-            elif not has_permission:
-                return forbidden(request, 'user lacks permission.')
+            if permission is None:
+                return a_view(anon_user, request, **kwargs)
             else:
-                extra = {
-                    'token': access_token,
-                }
-                if request.method in ['POST', 'PUT']:
-                    extra['body'] = request.body
-                audit_logger.info('Authorised action', extra=extra)
-                return a_view(user, request, *args, **kwargs)
+                access_token = extract_bearer_token(request)
+                if access_token is None:
+                    return unauthorized(request, 'no access token given.')
+
+                (user, has_permission) = check_permission(access_token, permission)
+
+                if user is None:
+                    return unauthorized(request, 'invalid access token.')
+                elif not has_permission:
+                    return forbidden(request, 'user lacks permission.')
+                else:
+                    extra = {
+                        'token': access_token,
+                    }
+                    if request.method in ['POST', 'PUT']:
+                        extra['body'] = request.body
+                    audit_logger.info('Authorised action', extra=extra)
+                    return a_view(user, request, **kwargs)
         return _wrapped_view
     return decorator
 

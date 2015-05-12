@@ -58,8 +58,9 @@ class TransformTypeView(ResourceView):
     }
 
     @method_decorator(never_cache)
-    def get(self, request, **kwargs):
-        return super(TransformTypeView, self).get(request, **kwargs)
+    @method_decorator(permission_required())
+    def get(self, user, request, **kwargs):
+        return super(TransformTypeView, self).get(user, request, **kwargs)
 
     @method_decorator(permission_required('transforms'))
     def post(self, user, request, **kwargs):
@@ -136,8 +137,9 @@ class TransformView(ResourceView):
     }
 
     @method_decorator(never_cache)
-    def get(self, request, **kwargs):
-        return super(TransformView, self).get(request, **kwargs)
+    @method_decorator(permission_required())
+    def get(self, user, request, **kwargs):
+        return super(TransformView, self).get(user, request, **kwargs)
 
     @method_decorator(permission_required('transforms'))
     def post(self, user, request, **kwargs):

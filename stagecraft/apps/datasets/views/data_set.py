@@ -99,8 +99,8 @@ class DataSetView(ResourceView):
     @method_decorator(never_cache)
     @method_decorator(vary_on_headers('Authorization'))
     def get(self, user, request, **kwargs):
-        kwargs['user'] = user
         return super(DataSetView, self).get(
+            user,
             request,
             **kwargs)
 

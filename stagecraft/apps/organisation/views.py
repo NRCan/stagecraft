@@ -27,8 +27,9 @@ class NodeTypeView(ResourceView):
     }
 
     @method_decorator(never_cache)
-    def get(self, request, **kwargs):
-        return super(NodeTypeView, self).get(request, **kwargs)
+    @method_decorator(permission_required())
+    def get(self, user, request, **kwargs):
+        return super(NodeTypeView, self).get(user, request, **kwargs)
 
     @method_decorator(permission_required('organisation'))
     def post(self, user, request, **kwargs):
@@ -78,20 +79,21 @@ class NodeView(ResourceView):
         'type': 'typeOf__name',
     }
 
+    def list(self, request, **kwargs):
+        if 'parent' in kwargs:
+            include_self = request.GET.get('self', 'false') == 'true'
+            return kwargs['parent'].get_ancestors(include_self=include_self)
+        else:
+            return super(NodeView, self).list(request, **kwargs)
+
+    @method_decorator(permission_required())
     @method_decorator(never_cache)
-    def get(self, request, **kwargs):
-        return super(NodeView, self).get(request, **kwargs)
+    def get(self, user, request, **kwargs):
+        return super(NodeView, self).get(user, request, **kwargs)
 
     @method_decorator(permission_required('organisation'))
     def post(self, user, request, **kwargs):
         return super(NodeView, self).post(user, request, **kwargs)
-
-    def from_resource(self, request, identifier, model):
-        if identifier == 'ancestors':
-            include_self = request.GET.get('self', 'false') == 'true'
-            return model.get_ancestors(include_self=include_self)
-        else:
-            return None
 
     def update_model(self, model, model_json, request):
         try:
@@ -104,7 +106,7 @@ class NodeView(ResourceView):
         model.abbreviation = model_json.get('abbreviation', None)
         model.typeOf = node_type
 
-    def update_relationships(self, model, model_json, request):
+    def update_relationships(self, model, model_json, request, parent):
         if 'parent_id' in model_json:
             parent_id = model_json['parent_id']
             if not is_uuid(parent_id):

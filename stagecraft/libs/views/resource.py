@@ -69,8 +69,8 @@ class ResourceView(View):
         user = kwargs.get('user', None)
         additional_filters = kwargs.get('additional_filters', {})
         unfiltered_roles = {'admin', 'dashboard-editor'}
-        should_filter = user and (len(set(user['permissions']).intersection(
-            unfiltered_roles)) == 0)
+        should_filter = user and not user.get('name') == 'anon' and \
+            (len(set(user['permissions']).intersection(unfiltered_roles)) == 0)
         if should_filter:
             additional_filters['backdropuser'] = BackdropUser.objects.filter(
                 email=user['email'])
@@ -130,12 +130,11 @@ class ResourceView(View):
     def update_model(self, model, model_json, request):
         pass
 
-    def update_relationships(self, model, model_json, request):
+    def update_relationships(self, model, model_json, request, parent):
         pass
 
-    def get(self, request, **kwargs):
+    def get(self, user, request, **kwargs):
         id_field, id = self._find_id(kwargs)
-        user = kwargs.get('user', None)
         sub_resource = kwargs.get('sub_resource', None)
 
         if id is not None:
@@ -143,11 +142,11 @@ class ResourceView(View):
             if model is None:
                 return HttpResponse('resource not found', status=404)
             elif sub_resource is not None:
-                return self._get_sub_resource(request, sub_resource, model)
+                return self._get_sub_resource(request, user, sub_resource, model)
             else:
                 return self._response(model)
         else:
-            return self._response(self.list(request, user=user))
+            return self._response(self.list(request, user=user, **kwargs))
 
     def _find_id(self, args):
         for key, regex in self.id_fields.items():
@@ -166,16 +165,15 @@ class ResourceView(View):
                 email=user['email']).count() == 0
         return user_is_not_admin and user_is_not_assigned
 
-    def _get_sub_resource(self, request, sub_resource, model):
+    def _get_sub_resource(self, request, user, sub_resource, model):
         sub_resource = str(sub_resource.strip().lower())
         sub_view = self.sub_resources.get(sub_resource, None)
 
         if sub_view is not None:
-            resources = sub_view.from_resource(request, sub_resource, model)
-            if resources is not None:
-                return sub_view._response(resources)
-            else:
-                return HttpResponse('sub resources not found', status=404)
+            sub_view_method = getattr(sub_view, request.method.lower())
+            return sub_view_method(user, request, **{
+                'parent': model,
+            })
         else:
             return HttpResponse('sub resource not found', status=404)
 
@@ -200,7 +198,7 @@ class ResourceView(View):
             if 'sub_resource' in kwargs:
                 model = self.by_id(request, id_field, id, user=user)
                 if model:
-                    return self._get_sub_resource(request, kwargs['sub_resource'], model)
+                    return self._get_sub_resource(request, user, kwargs['sub_resource'], model)
                 else:
                     return HttpResponse('parent resource not found', status=404)
             else:
@@ -220,7 +218,10 @@ class ResourceView(View):
             if err:
                 return err
 
-            err = self.update_relationships(model, model_json, request)
+            err = self.update_relationships(
+                model, model_json, request, 
+                kwargs.get('parent', None),
+            )
             if err:
                 return err
 
@@ -249,7 +250,10 @@ class ResourceView(View):
         if err:
             return err
 
-        err = self.update_relationships(model, model_json, request)
+        err = self.update_relationships(
+            model, model_json, request,
+            kwargs.get('parent', None),
+        )
         if err:
             return err
 

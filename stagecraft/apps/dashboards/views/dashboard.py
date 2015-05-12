@@ -364,8 +364,9 @@ class DashboardView(ResourceView):
     }
 
     @method_decorator(never_cache)
-    def get(self, request, **kwargs):
-        return super(DashboardView, self).get(request, **kwargs)
+    @method_decorator(permission_required())
+    def get(self, user, request, **kwargs):
+        return super(DashboardView, self).get(user, request, **kwargs)
 
     @method_decorator(permission_required('dashboard'))
     def post(self, user, request, **kwargs):
@@ -424,7 +425,7 @@ class DashboardView(ResourceView):
         return modules
 
 
-    def update_relationships(self, model, model_json, request):
+    def update_relationships(self, model, model_json, request, parent):
         if 'links' in model_json:
             for link_data in model_json['links']:
                 if link_data['type'] == 'transaction':
