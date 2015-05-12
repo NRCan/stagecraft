@@ -214,13 +214,15 @@ class ModuleViewsTestCase(TestCase):
             '/dashboard/{}/module'.format(self.dashboard.slug),
             data=json.dumps({
                 'slug': 'a-module',
-                'type_id': str(self.module_type.id),
+                'dashboard': str(self.dashboard.id),
+                'type': str(self.module_type.id),
                 'title': 'Some module',
                 'description': 'Some text about the module',
                 'info': ['foo'],
                 'options': {
                     'thing': 'a value',
                 },
+                'objects': "some object",
                 'order': 1,
                 'modules': [],
             }),

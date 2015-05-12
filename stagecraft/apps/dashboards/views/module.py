@@ -208,6 +208,9 @@ class ModuleView(ResourceView):
             "objects": {
                 "type": "string",
             },
+            "modules": {
+                "type": "array"
+            }
         },
         "required": ["type", "dashboard", "slug", "title", "order", "objects"],
         "additionalProperties": False,
@@ -235,8 +238,38 @@ class ModuleView(ResourceView):
     def put(self, user, request, **kwargs):
         return super(ModuleView, self).post(user, request, **kwargs)
 
-    def from_resource(self, request, identifier, model):
-        return model.module_set.filter(parent=None).order_by('order')
+    def update_model(self, model, model_json, request):
+        try:
+            module_type = ModuleType.objects.get(id=model_json['type'])
+        except ModuleType.DoesNotExist:
+            return HttpResponse('module type not found', status=404)
+
+        try:
+            dashboard = Dashboard.objects.get(id=model_json['dashboard'])
+        except Dashboard.DoesNotExist:
+            return HttpResponse('dashboard not found', status=404)
+
+        model.type = module_type
+        model.dashboard = dashboard
+        model.slug = model_json['slug']
+        model.title = model_json['title']
+        model.description = model_json['description']
+        model.info = model_json['info']
+        model.options = model_json['options']
+        model.order = model_json['order']
+
+    def update_relationships(self, model, model_json, request, parent):
+        if 'parent_id' in model_json:
+            parent_id = model_json['parent_id']
+            if not is_uuid(parent_id):
+                return HttpResponse('parent_id has to be a uuid', status=400)
+
+            try:
+                parent_node = Dashboard.objects.get(id=parent_id)
+            except Dashboard.DoesNotExist:
+                return HttpResponse('parent not found', status=400)
+
+            model.parents.add(parent_node)
 
     @staticmethod
     def serialize(model):
