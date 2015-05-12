@@ -1,5 +1,6 @@
 from django.utils.decorators import method_decorator
-from stagecraft.libs.views.resource import ResourceView
+# from stagecraft.apps.dashboards.views.dashboard import DashboardView
+from stagecraft.libs.views.resource import ResourceView, UUID_RE_STRING
 import json
 
 from django.http import HttpResponse
@@ -154,18 +155,78 @@ def add_module_to_dashboard_view(user, request, dashboard):
 class ModuleView(ResourceView):
     model = Module
 
+    id_fields = {
+        'id': UUID_RE_STRING,
+        'slug': '[\w-]+',
+    }
+
+    list_filters = {
+        'name': 'name__iexact'
+    }
+
+    schema = {
+        "$schema": "http://json-schema.org/schema#",
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+            },
+            "type": {
+                "type": "string",
+            },
+            "dashboard": {
+                "type": "string",
+            },
+            "data_set": {
+                "type": "string",
+            },
+            "parent": {
+                "type": "string",
+            },
+            "slug": {
+                "type": "string",
+            },
+            "title": {
+                "type": "string",
+            },
+            "description": {
+                "type": "string",
+            },
+            "info": {
+                "type": "array",
+            },
+            "options": {
+                "type": "object",
+            },
+            "query_parameters": {
+                "type": "object",
+            },
+            "order": {
+                "type": "integer",
+            },
+            "objects": {
+                "type": "string",
+            },
+        },
+        "required": ["type", "dashboard", "slug", "title", "order", "objects"],
+        "additionalProperties": False,
+    }
+
     @csrf_exempt
-    @never_cache
+    @method_decorator(never_cache)
     def get(self, request, **kwargs):
         return super(ModuleView, self).get(request, **kwargs)
 
-    def post(self, request, **kwargs):
-        # block direct creation of modules for now.
-        return HttpResponse('', status=405)
+    @method_decorator(permission_required('dashboard'))
+    def post(self, user, request, **kwargs):
+        return super(ModuleView, self).post(user, request, **kwargs)
 
-    def put(self, request, **kwargs):
-        # block direct creation of modules for now.
-        return HttpResponse('', status=405)
+    @method_decorator(permission_required('dashboard'))
+    def put(self, user, request, **kwargs):
+        return super(ModuleView, self).post(user, request, **kwargs)
+
+    def from_resource(self, request, identifier, model):
+        return model.module_set.filter(parent=None).order_by('order')
 
     @staticmethod
     def serialize(model):
@@ -204,7 +265,6 @@ class ModuleTypeView(ResourceView):
 
     @method_decorator(permission_required('dashboard'))
     def post(self, user, request, **kwargs):
-        print "IN POST"
         return super(ModuleTypeView, self).post(user, request, **kwargs)
 
     @method_decorator(permission_required('dashboard'))

@@ -377,6 +377,3 @@ class ResourceViewTestCase(TestCase):
             "sub_resource": "child"})
         assert_that(status_code, is_(200))
         assert_that(sub_resource, has_entry("foo", "bar"))
-
-
-

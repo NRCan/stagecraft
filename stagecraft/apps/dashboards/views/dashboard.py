@@ -1,29 +1,30 @@
-import json
+# import json
 import logging
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
-from django.core.urlresolvers import reverse
-from django.db import IntegrityError
+# from django.core.exceptions import ValidationError
+# from django.core.urlresolvers import reverse
+# from django.db import IntegrityError
 from django.http import (HttpResponse,
                          HttpResponseBadRequest,
                          HttpResponseNotFound)
-from django.shortcuts import get_object_or_404
+# from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_control, never_cache
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+# from django.views.decorators.csrf import csrf_exempt
+# from django.views.decorators.http import require_http_methods
 from django.views.decorators.vary import vary_on_headers
 
 from stagecraft.apps.dashboards.models.dashboard import Dashboard
+from stagecraft.apps.dashboards.views.module import ModuleView
 from stagecraft.apps.organisation.models import Node
 from stagecraft.libs.authorization.http import permission_required
 from stagecraft.libs.validation.validation import is_uuid
 from stagecraft.libs.views.resource import ResourceView, UUID_RE_STRING
 from stagecraft.libs.views.utils import to_json, create_error
-from stagecraft.libs.views.transaction import atomic_view
-from .module import add_module_to_dashboard
-from ..models.module import Module
+# from stagecraft.libs.views.transaction import atomic_view
+# from .module import add_module_to_dashboard
+# from ..models.module import Module
 import time
 
 logger = logging.getLogger(__name__)
@@ -94,177 +95,178 @@ def fetch_dashboard(dashboard_slug):
     return dashboard
 
 
-@cache_control(max_age=60)
-@csrf_exempt
-@require_http_methods(['GET'])
-@permission_required('dashboard')
-def list_dashboards(user, request):
-    parsed_dashboards = []
-
-    for item in Dashboard.objects.all().order_by('title'):
-        parsed_dashboards.append({
-            'id': item.id,
-            'title': item.title,
-            'url': '{0}{1}'.format(
-                settings.APP_ROOT,
-                reverse('dashboard', kwargs={'identifier': item.slug})),
-            'public-url': '{0}/performance/{1}'.format(
-                settings.GOVUK_ROOT, item.slug),
-            'status': item.status,
-            'published': item.published
-        })
-
-    return HttpResponse(to_json({'dashboards': parsed_dashboards}))
-
-
-@csrf_exempt
-@require_http_methods(['GET'])
-@permission_required('dashboard')
-def get_dashboard_by_slug(user, request, slug=None):
-    dashboard = get_object_or_404(Dashboard, slug=slug)
-
-    return HttpResponse(
-        to_json(dashboard.serialize()),
-        content_type='application/json'
-    )
+# @cache_control(max_age=60)
+# @csrf_exempt
+# @require_http_methods(['GET'])
+# @permission_required('dashboard')
+# def list_dashboards(user, request):
+#     parsed_dashboards = []
+#
+#     for item in Dashboard.objects.all().order_by('title'):
+#         parsed_dashboards.append({
+#             'id': item.id,
+#             'title': item.title,
+#             'url': '{0}{1}'.format(
+#                 settings.APP_ROOT,
+#                 reverse('dashboard', kwargs={'identifier': item.slug})),
+#             'public-url': '{0}/performance/{1}'.format(
+#                 settings.GOVUK_ROOT, item.slug),
+#             'status': item.status,
+#             'published': item.published
+#         })
+#
+#     return HttpResponse(to_json({'dashboards': parsed_dashboards}))
 
 
-@csrf_exempt
-@require_http_methods(['GET'])
-@permission_required('dashboard')
-def get_dashboard_by_uuid(user, request, dashboard_id=None):
-    dashboard = get_object_or_404(Dashboard, id=dashboard_id)
+# @csrf_exempt
+# @require_http_methods(['GET'])
+# @permission_required('dashboard')
+# def get_dashboard_by_slug(user, request, slug=None):
+#     dashboard = get_object_or_404(Dashboard, slug=slug)
+#
+#     return HttpResponse(
+#         to_json(dashboard.serialize()),
+#         content_type='application/json'
+#     )
+#
+#
+# @csrf_exempt
+# @require_http_methods(['GET'])
+# @permission_required('dashboard')
+# def get_dashboard_by_uuid(user, request, dashboard_id=None):
+#     dashboard = get_object_or_404(Dashboard, id=dashboard_id)
+#
+#     return HttpResponse(
+#         to_json(dashboard.serialize()),
+#         content_type='application/json'
+#     )
 
-    return HttpResponse(
-        to_json(dashboard.serialize()),
-        content_type='application/json'
-    )
 
-
-@csrf_exempt
-@require_http_methods(['POST', 'PUT', 'GET'])
-@permission_required('dashboard')
-@never_cache
-@atomic_view
-def dashboard(user, request, identifier=None):
-
-    def add_module_and_children_to_dashboard(dashboard,
-                                             module_data,
-                                             parent=None):
-        modules = []
-        module = add_module_to_dashboard(dashboard, module_data, parent)
-        modules.append(module)
-        for module_data in module_data['modules']:
-            modules.extend(add_module_and_children_to_dashboard(
-                dashboard, module_data, module))
-        return modules
-
-    if request.method == 'GET':
-        if is_uuid(identifier):
-            return get_dashboard_by_uuid(request, identifier)
-        else:
-            return get_dashboard_by_slug(request, identifier)
-
-    data = json.loads(request.body)
-
-    # create a dashboard if we don't already have a dashboard slug
-    if identifier is None and request.method == 'POST':
-        dashboard = Dashboard()
-    else:
-        if is_uuid(identifier):
-            dashboard = get_object_or_404(Dashboard, id=identifier)
-        else:
-            dashboard = get_object_or_404(Dashboard, slug=identifier)
-
-    if data.get('organisation'):
-        if not is_uuid(data['organisation']):
-            error = {
-                'status': 'error',
-                'message': 'Organisation must be a valid UUID',
-                'errors': [create_error(
-                    request, 400,
-                    detail='Organisation must be a valid UUID'
-                )],
-            }
-            return HttpResponseBadRequest(to_json(error))
-
-        try:
-            organisation = Node.objects.get(id=data['organisation'])
-            dashboard.organisation = organisation
-        except Node.DoesNotExist:
-            error = {
-                'status': 'error',
-                'message': 'Organisation does not exist',
-                'errors': [create_error(request, 404,
-                                        detail='Organisation does not exist')]
-            }
-            return HttpResponseBadRequest(to_json(error))
-
-    for key, value in data.iteritems():
-        if key not in ['organisation', 'links']:
-            setattr(dashboard, key.replace('-', '_'), value)
-
-    try:
-        dashboard.full_clean()
-    except ValidationError as error_details:
-        errors = error_details.message_dict
-        error_list = ['{0}: {1}'.format(field, ', '.join(errors[field]))
-                      for field in errors]
-        formatted_errors = ', '.join(error_list)
-        error = {
-            'status': 'error',
-            'message': formatted_errors,
-            'errors': [create_error(request, 400, title='validation error',
-                                    detail=e)
-                       for e in error_list]
-        }
-        return HttpResponseBadRequest(to_json(error))
-
-    try:
-        dashboard.save()
-    except IntegrityError as e:
-        error = {
-            'status': 'error',
-            'message': '{0}'.format(e.message),
-            'errors': [create_error(request, 400, title='integrity error',
-                                    detail=e.message)]
-        }
-        return HttpResponseBadRequest(to_json(error))
-
-    if 'links' in data:
-        for link_data in data['links']:
-            if link_data['type'] == 'transaction':
-                link, _ = dashboard.link_set.get_or_create(
-                    link_type='transaction')
-                link.url = link_data['url']
-                link.title = link_data['title']
-                link.save()
-            else:
-                dashboard.link_set.create(link_type=link_data.pop('type'),
-                                          **link_data)
-
-    if 'modules' in data:
-        module_ids = set([m.id for m in dashboard.module_set.all()])
-
-        for module_data in data['modules']:
-            try:
-                modules = add_module_and_children_to_dashboard(
-                    dashboard, module_data)
-                for m in modules:
-                    module_ids.discard(m.id)
-            except ValueError as e:
-                error = {
-                    'status': 'error',
-                    'message': e.message,
-                    'errors': [create_error(request, 400,
-                                            detail=e.message)]
-                }
-                return HttpResponseBadRequest(to_json(error))
-
-        Module.objects.filter(id__in=module_ids).delete()
-
-    return HttpResponse(to_json(dashboard.serialize()),
-                        content_type='application/json')
+# @csrf_exempt
+# @require_http_methods(['POST', 'PUT', 'GET'])
+# @permission_required('dashboard')
+# @never_cache
+# @atomic_view
+# def dashboard(user, request, identifier=None):
+#
+#     def add_module_and_children_to_dashboard(dashboard,
+#                                              module_data,
+#                                              parent=None):
+#         modules = []
+#         module = add_module_to_dashboard(dashboard, module_data, parent)
+#         modules.append(module)
+#         for module_data in module_data['modules']:
+#             modules.extend(add_module_and_children_to_dashboard(
+#                 dashboard, module_data, module))
+#         return modules
+#
+#     if request.method == 'GET':
+#         if is_uuid(identifier):
+#             return get_dashboard_by_uuid(request, identifier)
+#         else:
+#             return get_dashboard_by_slug(request, identifier)
+#
+#     data = json.loads(request.body)
+#
+# create a dashboard if we don't already have a dashboard slug
+#     if identifier is None and request.method == 'POST':
+#         dashboard = Dashboard()
+#     else:
+#         if is_uuid(identifier):
+#             dashboard = get_object_or_404(Dashboard, id=identifier)
+#         else:
+#             dashboard = get_object_or_404(Dashboard, slug=identifier)
+#
+#     if data.get('organisation'):
+#         if not is_uuid(data['organisation']):
+#             error = {
+#                 'status': 'error',
+#                 'message': 'Organisation must be a valid UUID',
+#                 'errors': [create_error(
+#                     request, 400,
+#                     detail='Organisation must be a valid UUID'
+#                 )],
+#             }
+#             return HttpResponseBadRequest(to_json(error))
+#
+#         try:
+#             organisation = Node.objects.get(id=data['organisation'])
+#             dashboard.organisation = organisation
+#         except Node.DoesNotExist:
+#             error = {
+#                 'status': 'error',
+#                 'message': 'Organisation does not exist',
+#                 'errors': [create_error(request, 404,
+#                                         detail=
+# 'Organisation does not exist')]
+#             }
+#             return HttpResponseBadRequest(to_json(error))
+#
+#     for key, value in data.iteritems():
+#         if key not in ['organisation', 'links']:
+#             setattr(dashboard, key.replace('-', '_'), value)
+#
+#     try:
+#         dashboard.full_clean()
+#     except ValidationError as error_details:
+#         errors = error_details.message_dict
+#         error_list = ['{0}: {1}'.format(field, ', '.join(errors[field]))
+#                       for field in errors]
+#         formatted_errors = ', '.join(error_list)
+#         error = {
+#             'status': 'error',
+#             'message': formatted_errors,
+#             'errors': [create_error(request, 400, title='validation error',
+#                                     detail=e)
+#                        for e in error_list]
+#         }
+#         return HttpResponseBadRequest(to_json(error))
+#
+#     try:
+#         dashboard.save()
+#     except IntegrityError as e:
+#         error = {
+#             'status': 'error',
+#             'message': '{0}'.format(e.message),
+#             'errors': [create_error(request, 400, title='integrity error',
+#                                     detail=e.message)]
+#         }
+#         return HttpResponseBadRequest(to_json(error))
+#
+#     if 'links' in data:
+#         for link_data in data['links']:
+#             if link_data['type'] == 'transaction':
+#                 link, _ = dashboard.link_set.get_or_create(
+#                     link_type='transaction')
+#                 link.url = link_data['url']
+#                 link.title = link_data['title']
+#                 link.save()
+#             else:
+#                 dashboard.link_set.create(link_type=link_data.pop('type'),
+#                                           **link_data)
+#
+#     if 'modules' in data:
+#         module_ids = set([m.id for m in dashboard.module_set.all()])
+#
+#         for module_data in data['modules']:
+#             try:
+#                 modules = add_module_and_children_to_dashboard(
+#                     dashboard, module_data)
+#                 for m in modules:
+#                     module_ids.discard(m.id)
+#             except ValueError as e:
+#                 error = {
+#                     'status': 'error',
+#                     'message': e.message,
+#                     'errors': [create_error(request, 400,
+#                                             detail=e.message)]
+#                 }
+#                 return HttpResponseBadRequest(to_json(error))
+#
+#         Module.objects.filter(id__in=module_ids).delete()
+#
+#     return HttpResponse(to_json(dashboard.serialize()),
+#                         content_type='application/json')
 
 
 class DashboardView(ResourceView):
@@ -276,6 +278,10 @@ class DashboardView(ResourceView):
     }
 
     order_by = "title"
+
+    sub_resources = {
+        'module': ModuleView(),
+    }
 
     schema = {
         "$schema": "http://json-schema.org/schema#",
