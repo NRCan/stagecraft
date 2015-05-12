@@ -124,7 +124,7 @@ class ResourceView(View):
         except self.model.DoesNotExist:
             return None
 
-    def from_resource(self, request, model):
+    def from_resource(self, request, sub_resource, model):
         return None
 
     def update_model(self, model, model_json, request):
@@ -169,11 +169,12 @@ class ResourceView(View):
     def _get_sub_resource(self, request, sub_resource, model):
         sub_resource = str(sub_resource.strip().lower())
         sub_view = self.sub_resources.get(sub_resource, None)
+        logger.info(self.sub_resources)
 
         if sub_view is not None:
             resources = sub_view.from_resource(request, sub_resource, model)
             if resources is not None:
-                return self._response(resources)
+                return sub_view._response(resources)
             else:
                 return HttpResponse('sub resources not found', status=404)
         else:
