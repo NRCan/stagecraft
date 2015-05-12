@@ -23,7 +23,7 @@ from stagecraft.libs.validation.validation import is_uuid
 from stagecraft.libs.views.resource import ResourceView, UUID_RE_STRING
 from stagecraft.libs.views.utils import to_json, create_error
 # from stagecraft.libs.views.transaction import atomic_view
-# from .module import add_module_to_dashboard
+from .module import add_module_to_dashboard
 # from ..models.module import Module
 import time
 
@@ -412,6 +412,18 @@ class DashboardView(ResourceView):
             if key not in ['organisation', 'links']:
                 setattr(model, key.replace('-', '_'), value)
 
+
+    def update_module(self, dashboard, module, parent=None):
+        module_model = add_module_to_dashboard(dashboard, module, parent)
+        modules = [module_model]
+
+        for child_module in module['modules']:
+            modules.extend(
+                self.update_module(dashboard, child_module, module_model))
+
+        return modules
+
+
     def update_relationships(self, model, model_json, request):
         if 'links' in model_json:
             for link_data in model_json['links']:
@@ -424,6 +436,19 @@ class DashboardView(ResourceView):
                 else:
                     model.link_set.create(link_type=link_data.pop('type'),
                                           **link_data)
+
+        if 'modules' in model_json:
+            current_module_ids = set([m.id for m in model.module_set.all()])
+
+            for module in model_json['modules']:
+                try:
+                    for changed_module in self.update_module(model, module):
+                        current_module_ids.discard(changed_module.id)
+                except ValueError as e:
+                    return HttpResponse(e.message, status=400)
+
+            model.module_set.filter(id__in=current_module_ids).delete()
+
 
     @staticmethod
     def serialize_for_list(model):
