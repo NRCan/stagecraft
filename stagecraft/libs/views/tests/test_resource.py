@@ -55,12 +55,25 @@ Node.validate = patched_validate
 
 class TestResourceViewChild(ResourceView):
     model = Node
-    id_fields = {
-        'id': '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
-        'slug': '[\w-]+',
+    schema = {
+        "$schema": "http://json-schema.org/schema#",
+        "type": "object",
+        "properties": {
+            "type_id": {
+                "type": "string",
+                "format": "uuid",
+            },
+            "name": {"type": "string"},
+            "slug": {"type": "string"},
+            "abbreviation": {"type": "string"},
+        },
+        "required": ["type_id", "name"],
+        "additionalProperties": False,
     }
+    calls = []
 
     def from_resource(self, request, sub_resource, model):
+        self.calls.append((request, sub_resource, model))
         return model
 
     @staticmethod
@@ -146,6 +159,7 @@ class ResourceViewTestCase(TestCase):
         view = cls()
 
         request = HttpRequest()
+        request.method = 'GET'
         for (k, v) in query.items():
             request.GET[k] = v
 
@@ -158,12 +172,13 @@ class ResourceViewTestCase(TestCase):
         except ValueError:
             json_response = None
 
-        return response.status_code, json_response
+        return response.status_code, json_response, view
 
     def _do(self, action, body, content_type, args):
         view = TestResourceView()
 
         request = HttpRequest()
+        request.method = action
         request.META['CONTENT_TYPE'] = content_type
         request._body = body
 
@@ -175,13 +190,14 @@ class ResourceViewTestCase(TestCase):
             raise Exception('Invalid action {}'.format(action))
 
         assert_that(response, instance_of(HttpResponse))
+        print response.content
 
         try:
             json_response = json.loads(response.content)
         except ValueError:
             json_response = None
 
-        return response.status_code, json_response
+        return response.status_code, json_response, view
 
     def post(self, body='', content_type='application/json', args={}):
         return self._do('POST', body, content_type, args)
@@ -196,7 +212,7 @@ class ResourceViewTestCase(TestCase):
         NodeFactory(name='foo-node-1')
         NodeFactory(name='foo-node-2')
 
-        status_code, json_response = self.get()
+        status_code, json_response, _ = self.get()
 
         assert_that(status_code, is_(200))
         assert_that(len(json_response), is_(2))
@@ -212,14 +228,14 @@ class ResourceViewTestCase(TestCase):
     def test_multiple_ids(self):
         node = NodeFactory(name='foo-node-1', slug='foo-node-1')
 
-        status_code, id_response = self.get(
+        status_code, id_response, _ = self.get(
             {'id': str(node.id)},
             cls=TestResourceViewMultipleIDs
         )
 
         assert_that(status_code, is_(200))
 
-        status_code, slug_response = self.get(
+        status_code, slug_response, _ = self.get(
             {'slug': node.slug},
             cls=TestResourceViewMultipleIDs
         )
@@ -231,7 +247,7 @@ class ResourceViewTestCase(TestCase):
         NodeFactory(name='foo')
         NodeFactory(name='bar')
 
-        status_code, json_response = self.get(query={
+        status_code, json_response, _ = self.get(query={
             'name': 'bAr',
         })
 
@@ -240,7 +256,7 @@ class ResourceViewTestCase(TestCase):
         assert_that(json_response[0]['name'], is_('bar'))
 
     def test_list_empty(self):
-        status_code, json_response = self.get()
+        status_code, json_response, _ = self.get()
 
         assert_that(status_code, is_(200))
         assert_that(len(json_response), is_(0))
@@ -248,7 +264,7 @@ class ResourceViewTestCase(TestCase):
     def test_get(self):
         node = NodeFactory()
 
-        status_code, json_response = self.get({'id': node.id})
+        status_code, json_response, _ = self.get({'id': node.id})
 
         assert_that(status_code, is_(200))
         assert_that(json_response['name'], is_(node.name))
@@ -256,7 +272,7 @@ class ResourceViewTestCase(TestCase):
     def test_get_does_not_exist(self):
         node = NodeFactory()
 
-        status_code, json_response = self.get({
+        status_code, json_response, _ = self.get({
             'id': 'fc1457d3-d4fe-41a5-8717-b412bee388e4'
         })
 
@@ -273,18 +289,18 @@ class ResourceViewTestCase(TestCase):
             'name': 'foo',
             'slug': 'xtx'
         }
-        status_code, json_response = self.post(body=json.dumps(post_object))
+        status_code, json_response, _ = self.post(body=json.dumps(post_object))
 
         assert_that(status_code, is_(200))
         assert_that(json_response['name'], is_('foo'))
         assert_that(json_response, has_key('id'))
 
     def test_post_must_be_json(self):
-        status_code, _ = self.post(content_type='text/plain')
+        status_code, _, _ = self.post(content_type='text/plain')
         assert_that(status_code, is_(415))
 
     def test_post_body_must_be_json(self):
-        status_code, _ = self.post(body='not json')
+        status_code, _, _ = self.post(body='not json')
         assert_that(status_code, is_(400))
 
     def test_post_must_validate_schema(self):
@@ -292,7 +308,7 @@ class ResourceViewTestCase(TestCase):
             'type_id': 'not a uuid',
             'name': 'foo',
         }
-        status_code, _ = self.post(body=json.dumps(post_object))
+        status_code, _, _ = self.post(body=json.dumps(post_object))
         assert_that(status_code, is_(400))
 
     def test_rollsback_on_failure(self):
@@ -302,7 +318,7 @@ class ResourceViewTestCase(TestCase):
             'name': 'save-and-fail-validation',
             'slug': 'save-and',
         }
-        status_code, json_response = self.post(body=json.dumps(post_object))
+        status_code, json_response, _ = self.post(body=json.dumps(post_object))
 
         assert_that(status_code, is_(400))
         assert_that(
@@ -318,13 +334,13 @@ class ResourceViewTestCase(TestCase):
             'name': 'foo',
             'slug': 'xtx'
         }
-        status_code, json_response = self.post(body=json.dumps(post_object))
+        status_code, json_response, _ = self.post(body=json.dumps(post_object))
 
         assert_that(status_code, is_(200))
 
         post_object['id'] = json_response['id']
         post_object['name'] = 'foobar'
-        status_code, json_response = self.post(body=json.dumps(post_object))
+        status_code, json_response, _ = self.post(body=json.dumps(post_object))
 
         assert_that(status_code, is_(400))
 
@@ -335,13 +351,13 @@ class ResourceViewTestCase(TestCase):
             'name': 'foo',
             'slug': 'xtx'
         }
-        status_code, post_json_response = self.post(
+        status_code, post_json_response, _ = self.post(
             body=json.dumps(post_object))
 
         assert_that(status_code, is_(200))
 
         post_object['name'] = 'foobar'
-        status_code, put_json_response = self.put(
+        status_code, put_json_response, _ = self.put(
             body=json.dumps(post_object),
             args={
                 'id': post_json_response['id'],
@@ -372,8 +388,50 @@ class ResourceViewTestCase(TestCase):
 
     def test_sub_resource_returns_child_object(self):
         node = NodeFactory()
-        status_code, sub_resource = self.get(args={
+        status_code, sub_resource, _ = self.get(args={
             "id": node.id,
             "sub_resource": "child"})
         assert_that(status_code, is_(200))
         assert_that(sub_resource, has_entry("foo", "bar"))
+
+    def test_if_post_with_id_bad_request(self):
+        status_code, _, _ = self.post(args={
+            'id': 'fc1457d3-d4fe-41a5-8717-b412bee388e4',
+        })
+        assert_that(status_code, is_(405))
+
+    def test_post_to_a_sub_resource(self):
+        node = NodeFactory()
+        status_code, _, view = self.post(args={
+            'id': node.id,
+            'sub_resource': 'child',
+        }, body=json.dumps({
+            'type_id': 'fc1457d3-d4fe-41a5-8717-b412bee388e4',
+            'name': 'a-node',
+        }))
+        assert_that(status_code, is_(200))
+        assert_that(
+            len(view.sub_resources['child'].calls),
+            is_(1)
+        )
+        assert_that(
+            view.sub_resources['child'].calls[0][0].method,
+            is_('POST')
+        )
+
+    def test_post_404s_if_parent_doesnt_exist(self):
+        status_code, _, view = self.post(args={
+            'id': 'fc1457d3-d4fe-41a5-8717-b412bee388e4',
+            'sub_resource': 'child',
+        }, body=json.dumps({
+        }))
+        assert_that(status_code, is_(404))
+
+    def test_post_to_sub_resource_validates_against_schema(self):
+        node = NodeFactory()
+        status_code, response, _ = self.post(args={
+            'id': node.id,
+            'sub_resource': 'child',
+        }, body=json.dumps({}))
+        assert_that(status_code, is_(400))
+        assert_that(response.content, is_('asd'))

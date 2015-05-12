@@ -169,7 +169,6 @@ class ResourceView(View):
     def _get_sub_resource(self, request, sub_resource, model):
         sub_resource = str(sub_resource.strip().lower())
         sub_view = self.sub_resources.get(sub_resource, None)
-        logger.info(self.sub_resources)
 
         if sub_view is not None:
             resources = sub_view.from_resource(request, sub_resource, model)
@@ -194,29 +193,42 @@ class ResourceView(View):
 
     @method_decorator(atomic_view)
     def post(self, user, request, **kwargs):
-        model_json, err = self._validate_json(request)
-        if err:
-            return err
+        id_field, id = self._find_id(kwargs)
+        sub_resource = kwargs.get('sub_resource', None)
 
-        model = self.model()
+        if id is not None:
+            if 'sub_resource' in kwargs:
+                model = self.by_id(request, id_field, id, user=user)
+                if model:
+                    return self._get_sub_resource(request, kwargs['sub_resource'], model)
+                else:
+                    return HttpResponse('parent resource not found', status=404)
+            else:
+                return HttpResponse("can't post to a resource", status=405)
+        else:
+            model_json, err = self._validate_json(request)
+            if err:
+                return err
 
-        err = self.update_model(model, model_json, request)
-        if err:
-            return err
+            model = self.model()
 
-        err = self._validate_and_save(model)
-        if err:
-            return err
+            err = self.update_model(model, model_json, request)
+            if err:
+                return err
 
-        err = self.update_relationships(model, model_json, request)
-        if err:
-            return err
+            err = self._validate_and_save(model)
+            if err:
+                return err
 
-        err = self._validate_and_save(model)
-        if err:
-            return err
+            err = self.update_relationships(model, model_json, request)
+            if err:
+                return err
 
-        return self._response(model)
+            err = self._validate_and_save(model)
+            if err:
+                return err
+
+            return self._response(model)
 
     @method_decorator(atomic_view)
     def put(self, user, request, **kwargs):
