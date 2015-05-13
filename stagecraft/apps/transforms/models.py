@@ -8,6 +8,7 @@ from django.db import models
 from jsonfield import JSONField
 from uuidfield import UUIDField
 
+from stagecraft.apps.users.models import User
 from stagecraft.apps.datasets.models import DataGroup, DataType
 from stagecraft.apps.dashboards.models.module import query_param_schema
 
@@ -50,6 +51,7 @@ class TransformType(models.Model):
 class Transform(models.Model):
     id = UUIDField(auto=True, primary_key=True, hyphenate=True)
     type = models.ForeignKey(TransformType)
+    owners = models.ManyToManyField(User)
 
     input_group = models.ForeignKey(
         DataGroup, null=True,
