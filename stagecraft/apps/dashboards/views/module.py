@@ -172,13 +172,16 @@ class ModuleView(ResourceView):
             "name": {
                 "type": "string",
             },
-            "type": {
+            "type_id": {
                 "type": "string",
             },
             "dashboard": {
                 "type": "string",
             },
-            "data_set": {
+            "data_group": {
+                "type": "string",
+            },
+            "data_type": {
                 "type": "string",
             },
             "parent": {
@@ -212,7 +215,7 @@ class ModuleView(ResourceView):
                 "type": "array"
             }
         },
-        "required": ["type", "dashboard", "slug", "title", "order", "objects"],
+        "required": ["type_id", "slug", "title", "order"],
         "additionalProperties": False,
     }
 
@@ -238,14 +241,15 @@ class ModuleView(ResourceView):
     def put(self, user, request, **kwargs):
         return super(ModuleView, self).post(user, request, **kwargs)
 
-    def update_model(self, model, model_json, request):
+    def update_model(self, model, model_json, request, parent):
+
         try:
-            module_type = ModuleType.objects.get(id=model_json['type'])
+            module_type = ModuleType.objects.get(id=model_json['type_id'])
         except ModuleType.DoesNotExist:
             return HttpResponse('module type not found', status=404)
 
         try:
-            dashboard = Dashboard.objects.get(id=model_json['dashboard'])
+            dashboard = Dashboard.objects.get(id=parent.id)
         except Dashboard.DoesNotExist:
             return HttpResponse('dashboard not found', status=404)
 
@@ -257,6 +261,26 @@ class ModuleView(ResourceView):
         model.info = model_json['info']
         model.options = model_json['options']
         model.order = model_json['order']
+
+        if model_json.get('data_group') and model_json.get('data_type'):
+            try:
+                data_set = DataSet.objects.get(
+                    data_group__name=model_json['data_group'],
+                    data_type__name=model_json['data_type'],
+                )
+            except DataSet.DoesNotExist:
+                return HttpResponse('data set does not exit', status=400)
+
+            model.data_set = data_set
+            model.query_parameters = model_json.get('query_parameters', {})
+
+            try:
+                model.validate_query_parameters()
+            except ValidationError as err:
+                msg = 'Query parameters not valid: {}'.format(err.message)
+                return HttpResponse(msg, status=400)
+        elif model_json.get('query_parameters'):
+            return HttpResponse('query parameters but not data set', status=400)
 
     def update_relationships(self, model, model_json, request, parent):
         if 'parent_id' in model_json:
@@ -315,7 +339,7 @@ class ModuleTypeView(ResourceView):
     def put(self, user, request, **kwargs):
         return super(ModuleTypeView, self).put(user, request, **kwargs)
 
-    def update_model(self, model, model_json, request):
+    def update_model(self, model, model_json, request, parent):
         for (key, value) in model_json.items():
             setattr(model, key, value)
 

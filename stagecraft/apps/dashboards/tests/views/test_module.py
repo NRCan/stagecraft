@@ -214,8 +214,7 @@ class ModuleViewsTestCase(TestCase):
             '/dashboard/{}/module'.format(self.dashboard.slug),
             data=json.dumps({
                 'slug': 'a-module',
-                'dashboard': str(self.dashboard.id),
-                'type': str(self.module_type.id),
+                'type_id': str(self.module_type.id),
                 'title': 'Some module',
                 'description': 'Some text about the module',
                 'info': ['foo'],
@@ -379,6 +378,8 @@ class ModuleViewsTestCase(TestCase):
             }),
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token',
             content_type='application/json')
+
+        print resp.content
 
         assert_that(resp.status_code, is_(equal_to(200)))
 

@@ -80,7 +80,7 @@ class TestResourceView(ResourceView):
     def update_relationships(self, model, model_json, request, parent):
         self.was_saved = model.pk is not None
 
-    def update_model(self, model, model_json, request):
+    def update_model(self, model, model_json, request, parent):
         try:
             node_type = NodeType.objects.get(id=model_json['type_id'])
         except NodeType.DoesNotExist:

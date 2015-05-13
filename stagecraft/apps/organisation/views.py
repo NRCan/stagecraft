@@ -35,7 +35,7 @@ class NodeTypeView(ResourceView):
     def post(self, user, request, **kwargs):
         return super(NodeTypeView, self).post(user, request, **kwargs)
 
-    def update_model(self, model, model_json, request):
+    def update_model(self, model, model_json, request, parent):
         model.name = model_json['name']
 
     @staticmethod
@@ -95,7 +95,7 @@ class NodeView(ResourceView):
     def post(self, user, request, **kwargs):
         return super(NodeView, self).post(user, request, **kwargs)
 
-    def update_model(self, model, model_json, request):
+    def update_model(self, model, model_json, request, parent):
         try:
             node_type = NodeType.objects.get(id=model_json['type_id'])
         except NodeType.DoesNotExist:

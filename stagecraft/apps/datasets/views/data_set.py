@@ -110,7 +110,7 @@ class DataSetView(ResourceView):
     def post(self, user, request, **kwargs):
         return super(DataSetView, self).post(user, request, **kwargs)
 
-    def update_model(self, model, model_json, request):
+    def update_model(self, model, model_json, request, parent):
         try:
             data_group = DataGroup.objects.get(name=model_json['data_group'])
             data_type = DataType.objects.get(name=model_json['data_type'])

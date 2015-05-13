@@ -127,7 +127,7 @@ class ResourceView(View):
     def from_resource(self, request, sub_resource, model):
         return None
 
-    def update_model(self, model, model_json, request):
+    def update_model(self, model, model_json, request, parent):
         pass
 
     def update_relationships(self, model, model_json, request, parent):
@@ -210,7 +210,8 @@ class ResourceView(View):
 
             model = self.model()
 
-            err = self.update_model(model, model_json, request)
+            err = self.update_model(model, model_json, request,
+                                    kwargs.get('parent', None))
             if err:
                 return err
 
@@ -246,7 +247,8 @@ class ResourceView(View):
         if err:
             return err
 
-        err = self.update_model(model, model_json, request)
+        err = self.update_model(model, model_json, request,
+                                kwargs.get('parent', None))
         if err:
             return err
 

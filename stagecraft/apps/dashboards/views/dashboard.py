@@ -377,7 +377,7 @@ class DashboardView(ResourceView):
     def put(self, user, request, **kwargs):
         return super(DashboardView, self).put(user, request, **kwargs)
 
-    def update_model(self, model, model_json, request):
+    def update_model(self, model, model_json, request, parent):
 
         if model_json.get('organisation'):
             org_id = model_json['organisation']
