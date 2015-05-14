@@ -198,18 +198,15 @@ class ModuleTypeView(ResourceView):
         'name': 'name__iexact'
     }
 
+    permissions = {
+        'get': None,
+        'post': 'dashboard',
+        'put': 'dashboard',
+    }
+
     @method_decorator(never_cache)
     def get(self, request, **kwargs):
         return super(ModuleTypeView, self).get(request, **kwargs)
-
-    @method_decorator(permission_required('dashboard'))
-    def post(self, user, request, **kwargs):
-        print "IN POST"
-        return super(ModuleTypeView, self).post(user, request, **kwargs)
-
-    @method_decorator(permission_required('dashboard'))
-    def put(self, user, request, **kwargs):
-        return super(ModuleTypeView, self).put(user, request, **kwargs)
 
     def update_model(self, model, model_json, request):
         for (key, value) in model_json.items():
