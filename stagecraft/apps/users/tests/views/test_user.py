@@ -23,7 +23,7 @@ class LongCacheTestCase(TestCase):
         assert_that(resp, has_header('Vary', 'Authorization'))
 
 
-class BackdropUserViewsTestCase(TestCase):
+class UserViewsTestCase(TestCase):
     fixtures = ['backdrop_users_testdata.json']
 
     def test_authorization_header_needed_for_detail(self):
@@ -69,5 +69,3 @@ class BackdropUserViewsTestCase(TestCase):
             '/users/nonexistant@user.com',
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token')
         assert_equal(resp.status_code, 404)
-        assert_that(resp, is_error_response(
-            "No user with email address 'nonexistant@user.com' exists"))
