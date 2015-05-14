@@ -40,23 +40,26 @@ class UserView(ResourceView):
         'email': 'email__iexact',
     }
 
-    @method_decorator(permission_required('user'))
+    permissions = {
+        'get': 'user',
+        'post': 'user',
+        'put': 'user',
+    }
+
     @never_cache
     @vary_on_headers('Authorization')
-    def get(self, user, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         return super(UserView, self).get(request, **kwargs)
 
-    @method_decorator(permission_required('user'))
     @never_cache
     @vary_on_headers('Authorization')
-    def post(self, user, request, **kwargs):
-        return super(UserView, self).post(user, request, **kwargs)
+    def post(self, request, **kwargs):
+        return super(UserView, self).post(request, **kwargs)
 
-    @method_decorator(permission_required('user'))
     @never_cache
     @vary_on_headers('Authorization')
-    def put(self, user, request, **kwargs):
-        return super(UserView, self).put(user, request, **kwargs)
+    def put(self, request, **kwargs):
+        return super(UserView, self).put(request, **kwargs)
 
     def update_model(self, model, model_json, request):
         model.email = model_json['email']
