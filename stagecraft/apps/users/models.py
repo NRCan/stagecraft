@@ -21,7 +21,7 @@ class User(models.Model):
 
         return OrderedDict([
             ('email',     self.email),
-            ('data_sets', get_names(self.data_sets.all()))
+            ('data_sets', get_names(self.dataset_set.all()))
         ])
 
     def api_object(self):
