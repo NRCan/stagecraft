@@ -16,11 +16,10 @@ class UserAdmin(reversion.VersionAdmin):
     search_fields = ['email']
     list_display = ('email', 'number_of_datasets_user_has_access_to',)
     list_per_page = 30
-    filter_horizontal = ('data_sets',)
 
     def queryset(self, request):
         return User.objects.annotate(
-            dataset_count=models.Count('data_sets')
+            dataset_count=models.Count('dataset_set')
         )
 
     def number_of_datasets_user_has_access_to(self, obj):

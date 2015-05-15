@@ -196,7 +196,7 @@ def dashboard(user, request, name):
 def users(user, request, dataset_name):
 
     users = User.objects.filter(
-        data_sets__name=dataset_name
+        dataset__name=dataset_name
     )
 
     if users:
