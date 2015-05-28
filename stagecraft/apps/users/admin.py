@@ -19,7 +19,7 @@ class UserAdmin(reversion.VersionAdmin):
 
     def queryset(self, request):
         return User.objects.annotate(
-            dataset_count=models.Count('dataset_set')
+            dataset_count=models.Count('datasets')
         )
 
     def number_of_datasets_user_has_access_to(self, obj):
