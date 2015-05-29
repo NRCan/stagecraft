@@ -4,7 +4,7 @@ django==1.7.8
 django-dbarray==0.2
 django-mptt==0.6.1
 django-reversion==1.8.0
--e git+https://github.com/macropin/django-uuidfield.git@0351ef187bd93ea4b348ca55dcb1108acd98e9ea#egg=django-uuidfield
+-e git+https://github.com/macropin/django-uuidfield.git#egg=django-uuidfield
 jsonfield==0.9.22
 requests==2.2.1
 logstash_formatter==0.5.7
