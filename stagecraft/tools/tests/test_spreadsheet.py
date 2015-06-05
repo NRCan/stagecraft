@@ -1,13 +1,13 @@
 from ..spreadsheets import SpreadsheetMunger
 import json
 
-from mock import patch, Mock
+from mock import Mock
 from hamcrest import (
     assert_that, has_entries
 )
 
 
-with open('stagecraft/tools/fixtures/tx.json') as f:
+with open('stagecraft/tools/fixtures/tx2.json') as f:
     tx_worksheet = json.loads(f.read())
 
 with open('stagecraft/tools/fixtures/names.json') as f:
