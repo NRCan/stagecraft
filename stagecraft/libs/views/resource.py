@@ -18,6 +18,7 @@ from django.db import DataError, IntegrityError
 from jsonschema import FormatChecker
 from jsonschema.compat import str_types
 from jsonschema.exceptions import ValidationError
+from stagecraft.libs.views.utils import create_http_error
 
 from .transaction import atomic_view
 from django.db.models import Q
@@ -292,16 +293,15 @@ class ResourceView(View):
         try:
             model_json = json.loads(request.body)
         except ValueError:
-            return None, HttpResponse('bad json', status=400)
+            return None, create_http_error(400, 'bad json', request)
 
         try:
             jsonschema.validate(
                 model_json, self.schema,
                 format_checker=FORMAT_CHECKER)
         except ValidationError as err:
-            return None, HttpResponse(
-                'options failed validation: {}'.format(err.message),
-                status=400)
+            message = 'options failed validation: {}'.format(err.message)
+            return None, create_http_error(400, message, request)
 
         return model_json, None
 
