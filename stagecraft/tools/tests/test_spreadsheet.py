@@ -10,21 +10,21 @@ from hamcrest import (
 with open('stagecraft/tools/fixtures/tx2.json') as f:
     tx_worksheet = json.loads(f.read())
 
-with open('stagecraft/tools/fixtures/names.json') as f:
+with open('stagecraft/tools/fixtures/names2.json') as f:
     names_worksheet = json.loads(f.read())
 
 
 def test_merge():
 
     munger = SpreadsheetMunger({
-        'names_transaction_name': 6,
-        'names_transaction_slug': 7,
-        'names_service_name': 4,
-        'names_service_slug': 5,
-        'names_tx_id': 16,
-        'names_description': 4,
-        'names_notes': 4,
-        'names_other_notes': 4
+        'names_transaction_name': 11,
+        'names_transaction_slug': 12,
+        'names_service_name': 9,
+        'names_service_slug': 10,
+        'names_tx_id': 19,
+        'names_description': 9,
+        'names_notes': 9,
+        'names_other_notes': 9
     })
 
     mock_account = Mock()

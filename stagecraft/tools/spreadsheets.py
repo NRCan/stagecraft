@@ -20,18 +20,18 @@ class SpreadsheetMunger:
         # The transaction explorer spreadsheet is less likely
         # to change so we can set defaults for these positions.
         self.tx_name = positions.get('tx_name', 4)
-        self.tx_desc1 = positions.get('tx_desc1', 65)
-        self.tx_desc2 = positions.get('tx_desc2', 66)
+        self.tx_desc1 = positions.get('tx_desc1', 69)
+        self.tx_desc2 = positions.get('tx_desc2', 70)
         self.tx_agency_abbr = positions.get('tx_agency_abbr', 3)
         self.tx_agency_name = positions.get('tx_agency_name', 2)
         self.tx_department_abbr = positions.get('tx_department_abbr', 0)
         self.tx_department_name = positions.get('tx_department_name', 1)
-        self.tx_high_volume = positions.get('tx_high_volume', 74)
-        self.tx_costs = positions.get('tx_costs', 68)
-        self.tx_other_notes = positions.get('tx_other_notes', 69)
+        self.tx_high_volume = positions.get('tx_high_volume', 77)
+        self.tx_costs = positions.get('tx_costs', 72)
+        self.tx_other_notes = positions.get('tx_other_notes', 73)
         self.tx_tx_id_column = positions.get('tx_tx_id_column', 6)
-        self.tx_customer_type = positions.get('tx_customer_type', 70)
-        self.tx_business_model = positions.get('tx_business_model', 71)
+        self.tx_customer_type = positions.get('tx_customer_type', 74)
+        self.tx_business_model = positions.get('tx_business_model', 75)
 
         self.names_description = positions['names_description']
         self.names_transaction_name = positions['names_transaction_name']
