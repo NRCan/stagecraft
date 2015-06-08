@@ -45,18 +45,18 @@ def test_merge():
 
 def test_no_agency_abbr():
 
-    with open('stagecraft/tools/fixtures/tx_no_agency_abbr.json') as f:
+    with open('stagecraft/tools/fixtures/tx_no_agency_abbr2.json') as f:
         tx_no_abbr_ws = json.loads(f.read())
 
     munger = SpreadsheetMunger({
-        'names_transaction_name': 6,
-        'names_transaction_slug': 7,
-        'names_service_name': 4,
-        'names_service_slug': 5,
-        'names_tx_id': 16,
-        'names_description': 4,
-        'names_notes': 4,
-        'names_other_notes': 4
+        'names_transaction_name': 11,
+        'names_transaction_slug': 12,
+        'names_service_name': 9,
+        'names_service_slug': 10,
+        'names_tx_id': 19,
+        'names_other_notes': 17,
+        'names_notes': 3,
+        'names_description': 8,
     })
 
     mock_account = Mock()

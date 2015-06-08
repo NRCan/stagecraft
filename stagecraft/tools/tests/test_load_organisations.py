@@ -22,7 +22,7 @@ from ..load_organisations import(
 
 
 with open(
-        'stagecraft/tools/fixtures/spreadsheet_munging_result.json', 'r') as f:
+        'stagecraft/tools/fixtures/spreadsheet_munging_result_old.json', 'r') as f:
     tx_fixture = json.loads(f.read())
 
 with open('stagecraft/tools/fixtures/organisations.json', 'r') as f:
@@ -279,6 +279,9 @@ def test_create_nodes():
 
 def test_build_up_node_dict():
     result = create_org_dict(tx_fixture, govuk_fixture)
+    import json
+    with open('this.json', 'w') as f:
+        f.write(json.dumps(result))
     assert_that(result, equal_to(expected_result))
 
 
