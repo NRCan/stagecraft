@@ -1,7 +1,6 @@
 from __future__ import unicode_literals
 from django.utils.encoding import python_2_unicode_compatible
 from django.db import models
-from collections import OrderedDict
 
 import reversion
 
@@ -16,13 +15,7 @@ class User(models.Model):
     )
 
     def serialize(self):
-        def get_names(data_sets):
-            return [data_set.name for data_set in data_sets]
-
-        return OrderedDict([
-            ('email',     self.email),
-            ('data_sets', get_names(self.dataset_set.all()))
-        ])
+        return {'email': self.email}
 
     def api_object(self):
         """

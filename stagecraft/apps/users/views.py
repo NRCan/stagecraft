@@ -26,11 +26,7 @@ class UserView(ResourceView):
         "properties": {
             "email": {
                 "type": "string"
-            },
-            "data_sets": {
-                "type": "object"
             }
-
         },
         "required": ["email"],
         "additionalProperties": False,
@@ -66,10 +62,4 @@ class UserView(ResourceView):
 
     @staticmethod
     def serialize(model):
-        def get_names(data_sets):
-            return [data_set.name for data_set in data_sets]
-
-        return OrderedDict([
-            ('email',     model.email),
-            ('data_sets', get_names(model.data_sets.all()))
-        ])
+        return model.serialize()
