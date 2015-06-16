@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('users', '0001_initial'),
-        ('datasets', '0003_copy_user_datasets'),
+        ('datasets', '0004_copy_user_datasets'),
     ]
 
     operations = [

@@ -12,7 +12,7 @@ def copy_user_datasets(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('datasets', '0002_dataset_owners'),
+        ('datasets', '0003_dataset_owners'),
     ]
 
     operations = [
