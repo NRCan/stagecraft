@@ -232,13 +232,14 @@ class ResourceView(View):
             if err:
                 return err
 
-            if hasattr(model, 'owners'):
-                user_obj, err = User.objects.get_or_create(email=user["email"])
-                model.owners.add(user_obj)
-
             err = self._validate_and_save(model, request)
             if err:
                 return err
+
+            if hasattr(model, 'owners'):
+                user_obj, created = User.objects.get_or_create(
+                    email=user["email"])
+                model.owners.add(user_obj)
 
             err = self.update_relationships(
                 model, model_json, request, kwargs.get('parent', None)
