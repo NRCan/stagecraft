@@ -233,8 +233,8 @@ class ResourceView(View):
                 return err
 
             if hasattr(model, 'owners'):
-                print user
-                model.owners.add(user)
+                user_obj, err = User.objects.get_or_create(email=user["email"])
+                model.owners.add(user_obj)
 
             err = self._validate_and_save(model, request)
             if err:
