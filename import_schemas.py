@@ -39,7 +39,7 @@ def get_schema_for_module_type(name):
 def check_module_type_schemas_correct():
     for module_type, new_schema in module_types_with_proper_schemas():
         try:
-            module_type.validate_schema()
+            module_type.validate()
         except jsonschema.exceptions.SchemaError as e:
             print "==============="
             print module_type.name
