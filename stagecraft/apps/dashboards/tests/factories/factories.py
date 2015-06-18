@@ -1,7 +1,13 @@
 import factory
 
 from ...models import Dashboard, Link, ModuleType, Module
+from ....users.models import User
 from ....organisation.tests.factories import NodeFactory, NodeTypeFactory
+
+
+class UserFactory(factory.DjangoModelFactory):
+    class Meta:
+        model = User
 
 
 class DashboardFactory(factory.DjangoModelFactory):
@@ -12,6 +18,14 @@ class DashboardFactory(factory.DjangoModelFactory):
     status = 'published'
     title = "title"
     slug = factory.Sequence(lambda n: 'slug%s' % n)
+
+
+class DashboardWithOwnerFactory(DashboardFactory):
+    @factory.post_generation
+    def owners(self, create, extracted, **kwargs):
+        if create:
+            for owner in extracted:
+                self.owners.add(owner)
 
 
 class LinkFactory(factory.DjangoModelFactory):

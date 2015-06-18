@@ -10,6 +10,7 @@ from django_nose.tools import assert_redirects
 from mock import patch
 
 from stagecraft.apps.dashboards.tests.factories.factories import(
+    UserFactory, DashboardWithOwnerFactory,
     DashboardFactory, DepartmentFactory, ModuleTypeFactory, ModuleFactory,
     LinkFactory)
 from stagecraft.apps.datasets.tests.factories import DataSetFactory
@@ -20,7 +21,7 @@ from stagecraft.apps.dashboards.models.module import Module
 from stagecraft.apps.dashboards.views.dashboard import fetch_dashboard
 from stagecraft.apps.users.models import User
 from stagecraft.libs.authorization.tests.test_http import (
-    with_govuk_signon, govuk_signon_mock)
+    with_govuk_signon)
 from stagecraft.libs.views.utils import to_json
 from stagecraft.libs.views.utils import JsonEncoder
 
@@ -29,8 +30,9 @@ class DashboardViewsListTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.user, _ = User.objects.get_or_create(
-            email='foobar.lastname@gov.uk')
+        pass
+        #cls.user, _ = User.objects.get_or_create(
+            #email='foobar.lastname@gov.uk')
 
     @classmethod
     def tearDownClass(cls):
@@ -148,8 +150,9 @@ class DashboardViewsListTestCase(TestCase):
         assert_that(resp.status_code, equal_to(404))
 
     def test_fetch_dashboard_with_multiple_slug_fragments(self):
-        dashboard = DashboardFactory(slug='my_first_slug')
-        dashboard.owners.add(self.user)
+        dashboard = DashboardWithOwnerFactory(
+            slug='my_first_slug',
+            owners=[UserFactory(email='foobar.lastname@gov.uk')])
         slug = 'my_first_slug/another/thing'
         returned_dashboard = fetch_dashboard(slug)
         assert_that(dashboard.id, equal_to(returned_dashboard.id))
@@ -686,7 +689,7 @@ class DashboardViewsUpdateTestCase(TestCase):
         dashboard_data['links'][0]['url'] = 'https://gov.uk/new-link'
         dashboard_data['links'][0]['title'] = 'new link title'
 
-        resp = self.client.put(
+        self.client.put(
             '/dashboard/{}'.format(dashboard.id),
             json.dumps(dashboard_data, cls=JsonEncoder),
             content_type="application/json",
