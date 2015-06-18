@@ -746,6 +746,22 @@ class DashboardViewsCreateTestCase(TestCase):
         assert_that(Dashboard.objects.count(), equal_to(1))
 
     @with_govuk_signon(permissions=['dashboard'])
+    def test_create_dashboard_adds_owner(self):
+        department = DepartmentFactory()
+        data = self._get_dashboard_payload(
+            organisation=str(department.id))
+
+        resp = self.client.post(
+            '/dashboard', json.dumps(data),
+            content_type="application/json",
+            HTTP_AUTHORIZATION='Bearer correct-token')
+
+        assert_that(resp.status_code, equal_to(200))
+        dashboard = Dashboard.objects.get(
+            slug=self._get_dashboard_payload()['slug'])
+        assert_that(len(dashboard.owners.all()), equal_to(1))
+
+    @with_govuk_signon(permissions=['dashboard'])
     def test_create_dashboard_fails_with_invalid_organisation_uuid(self):
         data = self._get_dashboard_payload(organisation='invalid')
 

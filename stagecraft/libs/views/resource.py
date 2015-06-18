@@ -232,6 +232,10 @@ class ResourceView(View):
             if err:
                 return err
 
+            if hasattr(model, 'owners'):
+                print user
+                model.owners.add(user)
+
             err = self._validate_and_save(model, request)
             if err:
                 return err
