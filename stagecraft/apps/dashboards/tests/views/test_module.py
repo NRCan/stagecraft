@@ -269,6 +269,28 @@ class ModuleViewsTestCase(TestCase):
             resp_json,
             is_not(has_item(has_entry('id', str(module3.id)))))
 
+    @with_govuk_signon(permissions=['dashboard'])
+    def test_list_modules(self):
+        ModuleFactory(
+            type=self.module_type,
+            dashboard=self.dashboard,
+            slug='module-1',
+            options={},
+            order=1)
+        ModuleFactory(
+            type=self.module_type,
+            dashboard=self.dashboard,
+            slug='module-2',
+            options={},
+            order=2)
+
+        resp = self.client.get(
+            '/modules', HTTP_AUTHORIZATION='Bearer correct-token')
+
+        assert_that(resp.status_code, is_(equal_to(200)))
+        resp_json = json.loads(resp.content)
+        assert_that(len(resp_json), is_(equal_to(2)))
+
     def test_add_a_module_to_a_dashboard(self):
         resp = self.client.post(
             '/dashboard/{}/module'.format(self.dashboard.slug),
