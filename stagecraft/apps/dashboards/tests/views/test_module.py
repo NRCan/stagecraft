@@ -87,6 +87,7 @@ class ModuleViewsTestCase(TestCase):
 
         assert_that(delete_resp.status_code, equal_to(405))
 
+    @with_govuk_signon(permissions=['dashboard'])
     def test_get_module_by_uuid(self):
         module1 = ModuleFactory(
             type=self.module_type,
@@ -95,7 +96,8 @@ class ModuleViewsTestCase(TestCase):
             options={},
             order=1)
         resp = self.client.get(
-            '/module/{}'.format(module1.id))
+            '/module/{}'.format(module1.id),
+            HTTP_AUTHORIZATION='Bearer correct-token')
 
         assert_that(resp.status_code, is_(equal_to(200)))
 
@@ -123,6 +125,7 @@ class ModuleViewsTestCase(TestCase):
             resp_json,
             equal_to(module_attrs))
 
+    @with_govuk_signon(permissions=['dashboard'])
     def test_get_module_by_uuid_404s_when_user_not_owner_of_dashboard(self):
         module1 = ModuleFactory(
             type=self.module_type,
@@ -131,7 +134,8 @@ class ModuleViewsTestCase(TestCase):
             options={},
             order=1)
         resp = self.client.get(
-            '/module/{}'.format(module1.id))
+            '/module/{}'.format(module1.id),
+            HTTP_AUTHORIZATION='Bearer correct-token')
 
         assert_that(resp.status_code, is_(equal_to(404)))
 
