@@ -90,6 +90,11 @@ class Module(models.Model):
 
     objects = ModuleManager()
 
+    def _get_owners(self):
+        return self.dashboard.owners
+
+    owners = property(_get_owners)
+
     # should run on normal validate
     def validate_options(self):
         jsonschema.validate(self.options, self.type.schema)

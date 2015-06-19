@@ -54,6 +54,11 @@ class ModuleViewsTestCase(TestCase):
             title='A service',
             slug='some-slug',
         )
+        cls.dashboard_without_owner = DashboardFactory(
+            published=True,
+            title='Another service',
+            slug='some-other-slug',
+        )
         cls.user, _ = User.objects.get_or_create(
             email='foobar.lastname@gov.uk')
 
@@ -118,6 +123,18 @@ class ModuleViewsTestCase(TestCase):
             resp_json,
             equal_to(module_attrs))
 
+    def test_get_module_by_uuid_404s_when_user_not_owner_of_dashboard(self):
+        module1 = ModuleFactory(
+            type=self.module_type,
+            dashboard=self.dashboard_without_owner,
+            slug='module-1',
+            options={},
+            order=1)
+        resp = self.client.get(
+            '/module/{}'.format(module1.id))
+
+        assert_that(resp.status_code, is_(equal_to(404)))
+
     def test_modules_on_dashboard_doesnt_delete(self):
         delete_resp = self.client.delete(
             '/dashboard/{}/module'.format(self.dashboard.slug),
@@ -169,6 +186,38 @@ class ModuleViewsTestCase(TestCase):
         assert_that(
             resp_json,
             has_item(has_entry('id', str(module2.id))))
+
+    @with_govuk_signon(permissions=['dashboard'])
+    def test_list_modules_on_dashboard_when_not_owner_returns_404(self):
+        dashboard2 = DashboardFactory(
+            published=True,
+            title='A service',
+            slug='some-slug2',
+        )
+        ModuleFactory(
+            type=self.module_type,
+            dashboard=self.dashboard,
+            slug='module-1',
+            options={},
+            order=1)
+        ModuleFactory(
+            type=self.module_type,
+            dashboard=self.dashboard,
+            slug='module-2',
+            options={},
+            order=2)
+        ModuleFactory(
+            type=self.module_type,
+            dashboard=dashboard2,
+            slug='module-3',
+            options={},
+            order=1)
+
+        resp = self.client.get(
+            '/dashboard/{}/module'.format(dashboard2.slug),
+            HTTP_AUTHORIZATION='Bearer correct-token')
+
+        assert_that(resp.status_code, is_(equal_to(404)))
 
     @with_govuk_signon(permissions=['dashboard'])
     def test_list_modules_on_dashboard(self):
