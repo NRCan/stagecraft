@@ -704,6 +704,47 @@ class ModuleViewsTestCase(TestCase):
         dashboard = Dashboard.objects.get(id=self.dashboard.id)
         assert_that(dashboard.module_set.all(), has_length(1))
 
+    def test_add_a_module_without_a_dashboard(self):
+        resp = self.client.post(
+            '/module/',
+            data=json.dumps({
+                'slug': 'a-module',
+                'type_id': str(self.module_type.id),
+                'title': 'Some module',
+                'description': 'Some text about the module',
+                'info': ['foo'],
+                'options': {
+                    'thing': 'a value',
+                    },
+                'objects': "some object",
+                'order': 1,
+                'modules': [],
+            }),
+            HTTP_AUTHORIZATION='Bearer development-oauth-access-token',
+            content_type='application/json')
+
+        assert_that(resp.status_code, is_(equal_to(404)))
+
+    @with_govuk_signon(permissions=['dashboard'])
+    def test_add_a_module_to_a_dashboard_you_do_not_own(self):
+
+        resp = self.client.post(
+            '/dashboard/{}/module'.format(self.dashboard_without_owner.slug),
+            data=json.dumps({
+                'slug': 'a-module',
+                'type_id': str(self.module_type.id),
+                'title': 'Some module',
+                'description': 'Some text about the module',
+                'info': ['foo'],
+                'options': {'thing': 'a value'},
+                'order': 1,
+                'modules': [],
+                }),
+            HTTP_AUTHORIZATION='Bearer correct-token',
+            content_type='application/json')
+
+        assert_that(resp.status_code, is_(equal_to(404)))
+
 
 class ModuleTypeViewsTestCase(TestCase):
 
