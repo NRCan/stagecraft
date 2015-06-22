@@ -60,6 +60,7 @@ class ResourceView(View):
         'get': None,
         'post': None,
         'put': None,
+        'delete': None,
     }
     id_fields = {
         'id': UUID_RE_STRING,
@@ -282,6 +283,28 @@ class ResourceView(View):
         if err:
             return err
 
+        return self._response(model)
+
+    @method_decorator(atomic_view)
+    def delete(self, request, **kwargs):
+        user, err = self._authorize(request)
+        if err:
+            return err
+
+        id_field, id = self._find_id(kwargs)
+
+        if id is None:
+            return create_http_error(400, 'id not provided', request)
+
+        model = self.by_id(request, id_field, id, user=user)
+        if model is None:
+            return create_http_error(404, 'model not found', request)
+
+        try:
+            model.delete()
+        except PermissionDenied as err:
+            return None, create_http_error(400, 'permission denied: {}'
+                                           .format())
         return self._response(model)
 
     def _authorize(self, request):

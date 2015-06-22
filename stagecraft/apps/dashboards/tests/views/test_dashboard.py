@@ -701,6 +701,15 @@ class DashboardViewsUpdateTestCase(TestCase):
 
 class DashboardViewsCreateTestCase(TestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        cls.user, _ = User.objects.get_or_create(
+            email='foobar.lastname@gov.uk')
+
+    @classmethod
+    def tearDownClass(cls):
+        pass
+
     def _get_dashboard_payload(self, **kwargs):
         data = {
             "slug": "foo",
@@ -916,3 +925,27 @@ class DashboardViewsCreateTestCase(TestCase):
         response_dict = json.loads(resp.content)
         assert_that(resp.status_code, equal_to(400))
         assert_that(response_dict['message'], equal_to(expected_message))
+
+    @with_govuk_signon(permissions=['dashboard'])
+    def test_delete_dashboard(self):
+        dashboard = DashboardFactory(title='test delete dashboard')
+        dashboard.owners.add(self.user)
+        resp = self.client.delete(
+            '/dashboard/{}'.format(dashboard.id),
+            content_type="application/json",
+            HTTP_AUTHORIZATION='Bearer correct-token')
+
+        assert_that(resp.status_code, equal_to(200))
+        assert_that(Dashboard.objects.count(), equal_to(0))
+
+    @with_govuk_signon(permissions=['user'])
+    def test_delete_dashboard_without_permission(self):
+        dashboard = DashboardFactory(title='test delete dashboard')
+        dashboard.owners.add(self.user)
+        resp = self.client.delete(
+            '/dashboard/{}'.format(dashboard.id),
+            content_type="application/json",
+            HTTP_AUTHORIZATION='Bearer correct-token')
+
+        assert_that(resp.status_code, equal_to(403))
+        assert_that(Dashboard.objects.count(), equal_to(1))

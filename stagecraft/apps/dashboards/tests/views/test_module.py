@@ -69,19 +69,6 @@ class ModuleViewsTestCase(TestCase):
         cls.module_type.delete()
         cls.dashboard.delete()
 
-    def test_module_doesnt_delete(self):
-        module1 = ModuleFactory(
-            type=self.module_type,
-            dashboard=self.dashboard,
-            slug='module-1',
-            options={},
-            order=1)
-        delete_resp = self.client.delete(
-            '/module/{}'.format(module1.id),
-            HTTP_AUTHORIZATION='Bearer development-oauth-access-token')
-
-        assert_that(delete_resp.status_code, equal_to(405))
-
     def test_get_module_by_uuid(self):
         module1 = ModuleFactory(
             type=self.module_type,
@@ -117,13 +104,6 @@ class ModuleViewsTestCase(TestCase):
         assert_that(
             resp_json,
             equal_to(module_attrs))
-
-    def test_modules_on_dashboard_doesnt_delete(self):
-        delete_resp = self.client.delete(
-            '/dashboard/{}/module'.format(self.dashboard.slug),
-            HTTP_AUTHORIZATION='Bearer development-oauth-access-token')
-
-        assert_that(delete_resp.status_code, equal_to(405))
 
     @with_govuk_signon(permissions=['dashboard'])
     def test_list_modules_by_uuid_or_slug(self):
@@ -545,13 +525,6 @@ class ModuleViewsTestCase(TestCase):
 
 
 class ModuleTypeViewsTestCase(TestCase):
-
-    def test_root_type_only_get_post(self):
-        delete_resp = self.client.delete(
-            '/module-type',
-            HTTP_AUTHORIZATION='Bearer development-oauth-access-token')
-
-        assert_that(delete_resp.status_code, equal_to(405))
 
     def test_list_types(self):
         ModuleTypeFactory(name="foo", schema={})
