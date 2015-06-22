@@ -715,7 +715,7 @@ class ModuleViewsTestCase(TestCase):
                 'info': ['foo'],
                 'options': {
                     'thing': 'a value',
-                    },
+                },
                 'objects': "some object",
                 'order': 1,
                 'modules': [],
@@ -739,7 +739,7 @@ class ModuleViewsTestCase(TestCase):
                 'options': {'thing': 'a value'},
                 'order': 1,
                 'modules': [],
-                }),
+            }),
             HTTP_AUTHORIZATION='Bearer correct-token',
             content_type='application/json')
 
