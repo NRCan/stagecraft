@@ -204,6 +204,8 @@ class ModuleView(ResourceView):
         except ModuleType.DoesNotExist:
             return create_http_error(404, 'module type not found', request)
 
+        if parent is None:
+            return create_http_error(404, 'no parent dashboard found', request)
         try:
             dashboard = Dashboard.objects.get(id=parent.id)
         except Dashboard.DoesNotExist:
