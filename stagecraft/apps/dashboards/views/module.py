@@ -188,6 +188,15 @@ class ModuleView(ResourceView):
     def get(self, request, **kwargs):
         return super(ModuleView, self).get(request, **kwargs)
 
+    @csrf_exempt
+    @method_decorator(never_cache)
+    def put(self, request, **kwargs):
+        return create_http_error(
+            405,
+            "Can't put to a resource,"
+            "update only supported through dashboard",
+            request)
+
     def update_model(self, model, model_json, request, parent):
 
         try:

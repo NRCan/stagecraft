@@ -773,6 +773,9 @@ class DashboardViewsCreateTestCase(TestCase):
         dashboard = Dashboard.objects.get(
             slug=self._get_dashboard_payload()['slug'])
         assert_that(len(dashboard.owners.all()), equal_to(1))
+        assert_that(
+            dashboard.owners.first().email,
+            equal_to('foobar.lastname@gov.uk'))
 
     @with_govuk_signon(permissions=['dashboard'])
     def test_create_dashboard_fails_with_invalid_organisation_uuid(self):
@@ -861,6 +864,9 @@ class DashboardViewsCreateTestCase(TestCase):
         assert_that(resp.status_code, equal_to(200))
         dashboard = Dashboard.objects.first()
         assert_that(dashboard.module_set.count(), equal_to(4))
+        # test cannot edit etc if one module not owned?
+        # test module owners set correctly?
+        assert_that(module_owners, owners_array)
         nested_module = Module.objects.get(slug='chimp')
         assert_that(nested_module.parent.slug, equal_to('monkey'))
 

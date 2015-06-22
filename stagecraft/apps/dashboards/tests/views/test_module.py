@@ -3,7 +3,8 @@ import json
 from django.test import TestCase
 from hamcrest import (
     assert_that, equal_to, is_,
-    has_entry, has_item, has_key, is_not, has_length
+    has_entry, has_item, has_key, is_not,
+    has_length, greater_than
 )
 from stagecraft.apps.users.models import User
 from stagecraft.libs.authorization.tests.test_http import with_govuk_signon
@@ -291,7 +292,89 @@ class ModuleViewsTestCase(TestCase):
         resp_json = json.loads(resp.content)
         assert_that(len(resp_json), is_(equal_to(2)))
 
+    def test_edit_a_module_by_slug_on_a_dashboard_when_you_are_an_owner(self):
+        module1 = ModuleFactory(
+            type=self.module_type,
+            dashboard=self.dashboard,
+            slug='module-1',
+            options={},
+            order=1)
+        resp = self.client.put(
+            '/module/{}'.format(module1.slug),
+            data=json.dumps({
+                'slug': 'a-module',
+                'type_id': str(self.module_type.id),
+                'title': 'Some module',
+                'description': 'Some text about the module',
+                'info': ['foo'],
+                'options': {
+                    'thing': 'a value',
+                },
+                'objects': "some object",
+                'order': 1,
+                'modules': [],
+            }),
+            HTTP_AUTHORIZATION='Bearer development-oauth-access-token',
+            content_type='application/json')
+
+        assert_that(resp.status_code, is_(equal_to(405)))
+
+    def test_edit_a_module_by_id_when_you_are_an_owner(self):
+        module1 = ModuleFactory(
+            type=self.module_type,
+            dashboard=self.dashboard,
+            slug='module-1',
+            options={},
+            order=1)
+        resp = self.client.put(
+            '/module/{}'.format(module1.id),
+            data=json.dumps({
+                'slug': 'a-module',
+                'type_id': str(self.module_type.id),
+                'title': 'Some module',
+                'description': 'Some text about the module',
+                'info': ['foo'],
+                'options': {
+                    'thing': 'a value',
+                },
+                'objects': "some object",
+                'order': 1,
+                'modules': [],
+            }),
+            HTTP_AUTHORIZATION='Bearer development-oauth-access-token',
+            content_type='application/json')
+
+        assert_that(resp.status_code, is_(equal_to(405)))
+
+    def test_edit_a_module_when_not_owner(self):
+        module1 = ModuleFactory(
+            type=self.module_type,
+            dashboard=self.dashboard_without_owner,
+            slug='module-1',
+            options={},
+            order=1)
+        resp = self.client.put(
+            '/module/{}'.format(module1.slug),
+            data=json.dumps({
+                'slug': 'a-module',
+                'type_id': str(self.module_type.id),
+                'title': 'Some module',
+                'description': 'Some text about the module',
+                'info': ['foo'],
+                'options': {
+                    'thing': 'a value',
+                },
+                'objects': "some object",
+                'order': 1,
+                'modules': [],
+            }),
+            HTTP_AUTHORIZATION='Bearer development-oauth-access-token',
+            content_type='application/json')
+
+        assert_that(resp.status_code, is_(equal_to(405)))
+
     def test_add_a_module_to_a_dashboard(self):
+        existing_modules_count = len(Module.objects.all())
         resp = self.client.post(
             '/dashboard/{}/module'.format(self.dashboard.slug),
             data=json.dumps({
@@ -311,6 +394,9 @@ class ModuleViewsTestCase(TestCase):
             content_type='application/json')
 
         assert_that(resp.status_code, is_(equal_to(200)))
+        assert_that(
+            len(Module.objects.all()),
+            greater_than(existing_modules_count))
 
         resp_json = json.loads(resp.content)
 
