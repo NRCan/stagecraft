@@ -114,12 +114,12 @@ class TransformViewTestCase(TestCase):
                 "type_id": "00000000-0000-0000-0000-000000000000",
                 "input": {
                     "data-type": DataTypeFactory().name,
-                    },
+                },
                 "options": {},
                 "output": {
                     "data-type": DataTypeFactory().name,
-                    },
-                }),
+                },
+            }),
             HTTP_AUTHORIZATION='Bearer development-oauth-access-token',
             content_type='application/json')
 
