@@ -9,6 +9,7 @@ from hamcrest import (
 from .factories import TransformTypeFactory, TransformFactory
 from ...datasets.tests.factories import DataGroupFactory, DataTypeFactory
 from stagecraft.apps.users.models import User
+from stagecraft.apps.transforms.models import Transform
 from stagecraft.libs.authorization.tests.test_http import with_govuk_signon
 
 
@@ -101,6 +102,29 @@ class TransformViewTestCase(TestCase):
             resp_json['output']['data-group'],
             equal_to(output_data_group.name))
 
+        assert_that(
+            Transform.objects.get(id=resp_json['id']).owners.first().email,
+            equal_to('some.user@digital.cabinet-office.gov.uk')
+        )
+
+    def test_post_type_not_found(self):
+        resp = self.client.post(
+            '/transform',
+            data=json.dumps({
+                "type_id": "00000000-0000-0000-0000-000000000000",
+                "input": {
+                    "data-type": DataTypeFactory().name,
+                    },
+                "options": {},
+                "output": {
+                    "data-type": DataTypeFactory().name,
+                    },
+                }),
+            HTTP_AUTHORIZATION='Bearer development-oauth-access-token',
+            content_type='application/json')
+
+        assert_that(resp.status_code, equal_to(400))
+
     def test_post_type_not_found(self):
         resp = self.client.post(
             '/transform',
@@ -187,3 +211,29 @@ class TransformViewTestCase(TestCase):
         )
 
         assert_that(resp.status_code, equal_to(404))
+
+    @with_govuk_signon(permissions=['transforms'])
+    def test_successful_put_when_user_in_ownership_array(self):
+        transform = TransformFactory()
+        user, _ = User.objects.get_or_create(
+            email='foobar.lastname@gov.uk')
+        transform.owners.add(user)
+
+        resp = self.client.put(
+            '/transform/{}'.format(transform.id),
+            data=json.dumps({
+                "type_id": str(TransformTypeFactory().id),
+                "input": {
+                    "data-type": DataTypeFactory().name,
+                },
+                "query-parameters": {},
+                "options": {},
+                "output": {
+                    "data-type": DataTypeFactory().name
+                }
+            }),
+            HTTP_AUTHORIZATION='Bearer correct-token',
+            content_type='application/json'
+        )
+
+        assert_that(resp.status_code, equal_to(200))
