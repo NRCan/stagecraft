@@ -864,9 +864,6 @@ class DashboardViewsCreateTestCase(TestCase):
         assert_that(resp.status_code, equal_to(200))
         dashboard = Dashboard.objects.first()
         assert_that(dashboard.module_set.count(), equal_to(4))
-        # test cannot edit etc if one module not owned?
-        # test module owners set correctly?
-        assert_that(module_owners, owners_array)
         nested_module = Module.objects.get(slug='chimp')
         assert_that(nested_module.parent.slug, equal_to('monkey'))
 

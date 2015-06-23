@@ -5,7 +5,8 @@ from hamcrest import (
     assert_that, equal_to, has_key
 )
 
-from .factories import TransformTypeFactory, TransformFactory
+from .factories import (TransformTypeFactory, TransformFactory,
+                        TransformWithDataGroupFactory)
 from ...datasets.tests.factories import DataGroupFactory, DataTypeFactory
 from stagecraft.apps.users.models import User
 from stagecraft.apps.transforms.models import Transform
@@ -201,7 +202,7 @@ class TransformViewTestCase(TestCase):
 
     @with_govuk_signon(permissions=['transforms'])
     def test_list_returns_transform_in_list_when_user_in_ownership_array(self):
-        transform = TransformFactory()
+        transform = TransformWithDataGroupFactory()
         user, _ = User.objects.get_or_create(
             email='foobar.lastname@gov.uk')
         transform.owners.add(user)
@@ -218,15 +219,15 @@ class TransformViewTestCase(TestCase):
         assert_that(
             resp_json[0]['input']['data-type'],
             equal_to(transform.input_type.name))
-        #assert_that(
-            #resp_json[0]['input']['data-group'],
-            #equal_to(transform.input_group.name))
+        assert_that(
+            resp_json[0]['input']['data-group'],
+            equal_to(transform.input_group.name))
         assert_that(
             resp_json[0]['output']['data-type'],
             equal_to(transform.output_type.name))
-        #assert_that(
-            #resp_json[0]['output']['data-group'],
-            #equal_to(transform.output_group.name))
+        assert_that(
+            resp_json[0]['output']['data-group'],
+            equal_to(transform.output_group.name))
 
     @with_govuk_signon(permissions=['transforms'])
     def test_404_on_put_when_user_not_in_ownership_array(self):
