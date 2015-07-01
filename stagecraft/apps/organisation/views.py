@@ -2,7 +2,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 
 from stagecraft.libs.validation.validation import is_uuid
-from stagecraft.libs.views.resource import ResourceView
+from stagecraft.libs.views.resource import ResourceView, UUID_RE_STRING
 from .models import Node, NodeType
 from stagecraft.libs.views.utils import create_http_error
 from stagecraft.libs.authorization.http import _get_resource_role_permissions
@@ -13,13 +13,27 @@ class NodeTypeView(ResourceView):
     model = NodeType
 
     schema = {
-        "$schema": "http://json-schema.org/schema#",
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
+        "out": {
+            "$schema": "http://json-schema.org/schema#",
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid",
+                 },
+                "name": {"type": "string"},
+            },
+            "required": ["id", "name"],
+            "additionalProperties": False,
+        }, "in": {
+            "$schema": "http://json-schema.org/schema#",
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "required": ["name"],
+            "additionalProperties": False,
         },
-        "required": ["name"],
-        "additionalProperties": False,
     }
 
     list_filters = {
@@ -48,23 +62,46 @@ class NodeView(ResourceView):
     model = Node
 
     schema = {
-        "$schema": "http://json-schema.org/schema#",
-        "type": "object",
-        "properties": {
-            "type_id": {
-                "type": "string",
-                "format": "uuid",
+        "out": {
+            "$schema": "http://json-schema.org/schema#",
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid",
+                },
+                "type": { "$ref": "#/definitions/NodeType" },
+                "name": {"type": "string"},
+                "slug": {"type": "string"},
+                "abbreviation": {"type": "string"},
             },
-            "parent_id": {
-                "type": "string",
-                "format": "uuid",
-            },
-            "name": {"type": "string"},
-            "slug": {"type": "string"},
-            "abbreviation": {"type": "string"},
+            "required": ["id", "name", "type", "slug", "abbreviation"],
+            "additionalProperties": False,
         },
-        "required": ["type_id", "name"],
-        "additionalProperties": False,
+        "in": {
+            "$schema": "http://json-schema.org/schema#",
+            "type": "object",
+            "properties": {
+                "type_id": {
+                    "type": "string",
+                    "format": "uuid",
+                },
+                "parent_id": {
+                    "type": "string",
+                    "format": "uuid",
+                },
+                "name": {"type": "string"},
+                "slug": {"type": "string"},
+                "abbreviation": {"type": "string"},
+            },
+            "required": ["type_id", "name"],
+            "additionalProperties": False,
+        },
+    }
+
+    id_fields = {
+        'id': UUID_RE_STRING,
+        'slug': '[\w-]+',
     }
 
     list_filters = {

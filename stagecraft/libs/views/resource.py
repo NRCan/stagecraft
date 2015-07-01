@@ -33,7 +33,11 @@ UUID_RE = re.compile(UUID_RE_STRING)
 FORMAT_CHECKER = FormatChecker()
 
 
+registered_resources = []
+
+
 def resource_url(ident, cls):
+    registered_resources.append(cls)
     return url(
         resource_re_string(ident, cls),
         csrf_exempt(cls.as_view()))

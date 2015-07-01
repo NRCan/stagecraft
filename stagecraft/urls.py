@@ -15,6 +15,7 @@ from stagecraft.apps.dashboards.views import \
     transactions_explorer as transactions_explorer_views
 
 from stagecraft.libs.views.resource import resource_url
+from stagecraft.libs.views.schema import view as schema_view
 from stagecraft.libs.status import views as status_views
 
 admin.autodiscover()
@@ -75,5 +76,7 @@ urlpatterns = patterns(
     resource_url('module-type', module_views.ModuleTypeView),
     resource_url('module', module_views.ModuleView),
     resource_url('dashboard', dashboard_views.DashboardView),
-    resource_url('users', user_views.UserView)
+    resource_url('users', user_views.UserView),
+
+    url(r'^schema$', schema_view),
 )
