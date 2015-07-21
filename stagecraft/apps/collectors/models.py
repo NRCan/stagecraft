@@ -25,7 +25,7 @@ class Provider(models.Model):
         return None
 
     def clean(self, *args, **kwargs):
-        super(Collector, self).clean(*args, **kwargs)
+        super(Provider, self).clean(*args, **kwargs)
         validation = self.validate()
 
         if validation is not None:
@@ -60,7 +60,7 @@ class DataSource(models.Model):
         return None
 
     def clean(self, *args, **kwargs):
-        super(Collector, self).clean(*args, **kwargs)
+        super(DataSource, self).clean(*args, **kwargs)
         validation = self.validate()
 
         if validation is not None:
@@ -105,7 +105,7 @@ class CollectorType(models.Model):
         return None
 
     def clean(self, *args, **kwargs):
-        super(Collector, self).clean(*args, **kwargs)
+        super(CollectorType, self).clean(*args, **kwargs)
         validation = self.validate()
 
         if validation is not None:
