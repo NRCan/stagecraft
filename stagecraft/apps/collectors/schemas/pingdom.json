@@ -1,0 +1,42 @@
+{
+    "$schema": "http://json-schema.org/schema#",
+        "properties": {
+            "data-set": {
+                "type": "object",
+                "properties": {
+                    "data-group": {
+                      "type": "string"
+                    },
+                    "data-type": {
+                      "type": "string"
+                    }
+                }
+            },
+            "entrypoint": {
+                "type": "string",
+                "pattern": "^[a-z0-9_\\.]+$"
+            },
+            "query": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "sting"
+                    }
+                }
+            },
+            "token": {
+                "type": "string"
+            },
+            "repeat": {
+                "type": "string"
+            }
+        },
+        "required": [
+            "data-set",
+            "entrypoint",
+            "query",
+            "token"
+        ],
+        "title": "Pingdom Collector",
+        "type": "object"
+}

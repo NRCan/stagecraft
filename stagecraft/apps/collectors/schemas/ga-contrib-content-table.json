@@ -1,0 +1,78 @@
+{
+      "$schema": "http://json-schema.org/schema#",
+      "properties": {
+          "data-set": {
+              "type": "object",
+              "properties": {
+                    "data-group": {
+                        "type": "string"
+                    },
+                    "data-type": {
+                        "type": "string"
+                    }
+              }
+          },
+          "entrypoint": {
+              "type": "string",
+              "pattern": "^[a-z0-9_\\.]+$"
+          },
+          "query": {
+              "type": "object",
+              "properties": {
+                  "id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9:]+$"
+                  },
+                  "metrics": {
+                      "type": "string"
+                  },
+                  "dimensions": {
+                      "type": "array",
+                      "items": {
+                          "type": "string"
+                      }
+                  },
+                  "filters": {
+                      "type": "array",
+                      "items": {
+                          "type": "string"
+                      }
+                  },
+                  "maxResults": {
+                      "type": "integer"
+                  }
+              }
+          },
+          "options": {
+              "type": "object",
+              "properties": {
+                  "plugins": {
+                      "type": "array",
+                      "items": {
+                          "type": "string"
+                      }
+                  },
+                  "filtersets": {
+                      "type": "array",
+                      "items": {
+                          "type": "array",
+                          "items": {
+                              "type": "string"
+                          }
+                      }
+                  }
+              }
+          },
+          "token": {
+              "type": "string"
+          }
+      },
+      "required": [
+        "data-set",
+        "entrypoint",
+        "query",
+        "token"
+      ],
+      "title": "Google Analytics Content Collector",
+      "type": "object"
+}
