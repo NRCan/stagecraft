@@ -13,7 +13,7 @@
             "pattern": "^[a-z_\\.]+$"
         }
     },
-    "title": "Webtrends Keymetrics Collector Descriptor",
+    "title": "Webtrends Keymetrics",
     "type": "object",
     "additionalProperties": false
 }

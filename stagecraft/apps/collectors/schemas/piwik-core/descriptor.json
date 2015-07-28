@@ -13,7 +13,7 @@
             "pattern": "^[a-z_\\.]+$"
         }
     },
-    "title": "Piwik Core Collector Descriptor",
+    "title": "Piwik Core",
     "type": "object",
     "additionalProperties": false
 }

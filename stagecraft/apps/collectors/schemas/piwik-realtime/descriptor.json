@@ -13,7 +13,7 @@
             "pattern": "^[a-z_\\.]+$"
         }
     },
-    "title": "Piwik Realtime Collector Descriptor",
+    "title": "Piwik Realtime",
     "type": "object",
     "additionalProperties": false
 }

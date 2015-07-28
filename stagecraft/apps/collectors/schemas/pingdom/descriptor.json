@@ -13,7 +13,7 @@
             "pattern": "^[a-z_\\.]+$"
         }
     },
-    "title": "Pingdom Collector Descriptor",
+    "title": "Pingdom",
     "type": "object",
     "additionalProperties": false
 }

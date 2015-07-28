@@ -13,7 +13,7 @@
             "pattern": "^[a-z_\\.]+$"
         }
     },
-    "title": "Google Analytics Realtime Collector Descriptor",
+    "title": "Google Analytics Realtime",
     "type": "object",
     "additionalProperties": false
 }

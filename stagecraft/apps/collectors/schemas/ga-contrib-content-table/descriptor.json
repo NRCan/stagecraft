@@ -13,7 +13,7 @@
             "pattern": "^[a-z_\\.]+$"
         }
     },
-    "title": "Google Analytics Collector Descriptor",
+    "title": "Google Analytics Content Table",
     "type": "object",
     "additionalProperties": false
 }

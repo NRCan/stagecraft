@@ -13,7 +13,7 @@
             "pattern": "^[a-z_\\.]+$"
         }
     },
-    "title": "Google Analytics Trending Collector Descriptor",
+    "title": "Google Analytics Trending",
     "type": "object",
     "additionalProperties": false
 }
