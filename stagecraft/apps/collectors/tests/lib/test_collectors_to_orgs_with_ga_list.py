@@ -1,23 +1,41 @@
 from django.test import TestCase
-from stagecraft.apps.collectors.management.lib.collectors_to_data_source_attribute_list import get_data_source_attribute_list  # noqa
-from hamcrest import equal_to, assert_that, has_item, has_entry
+from stagecraft.apps.collectors.lib.collectors_to_orgs_with_ga_list import get_list_of_orgs_with_ga  # noqa
+from hamcrest import equal_to, assert_that, has_item
 from stagecraft.apps.collectors.tests.factories import CollectorFactory
 from stagecraft.apps.dashboards.tests.factories.factories import(ModuleFactory)
 from stagecraft.apps.dashboards.tests.factories.factories import(
     DepartmentFactory)
+from stagecraft.apps.collectors.models import Provider
 
 
-class CollectorsToDataSourceTestCase(TestCase):
+class CollectorsToOrgsWithGaListTestCase(TestCase):
 
     def test_get_list_returns_a_list_of_data_source_attrs(self):
+        Provider.objects.all().delete()
+        collector = CollectorFactory()
+        provider = collector.type.provider
+        provider.slug = "ga"
+        provider.save()
+        module = ModuleFactory(data_set=collector.data_set)
+        department = DepartmentFactory()
+        dashboard = module.dashboard
+        dashboard.organisation = department
+        dashboard.save()
+        orgs_with_ga = get_list_of_orgs_with_ga()
+        assert_that(
+            orgs_with_ga,
+            has_item("For {} {} provides {}".format(
+                department.name,
+                collector.type.provider.name,
+                collector.data_set.name)))
+        assert_that(len(orgs_with_ga), equal_to(1))
+
+    def test_get_list_returns_an_empty_list_if_no_ga(self):
         collector = CollectorFactory()
         module = ModuleFactory(data_set=collector.data_set)
         department = DepartmentFactory()
         dashboard = module.dashboard
         dashboard.organisation = department
         dashboard.save()
-        data_source_attr_list = get_data_source_attribute_list()
-        assert_that(
-            data_source_attr_list,
-            has_item(has_entry("name", "abc")))
-        assert_that(len(data_source_attr_list), equal_to(1))
+        orgs_with_ga = get_list_of_orgs_with_ga()
+        assert_that(len(orgs_with_ga), equal_to(0))

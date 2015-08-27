@@ -5,17 +5,22 @@ from stagecraft.apps.dashboards.models.dashboard import(
     Dashboard)
 
 
-def get_data_source_attribute_list():
+def get_list_of_orgs_with_ga():
     data_source_attribute_list = []
     for collector in Collector.objects.all():
-        org_names_list = get_org_list_through_dashboard(collector)
-        org_names_set = list(set(org_names_list))
-        if len(org_names_set) > 1:
-            print "loads! {}".format(org_names_set)
-        data_source_attribute_list.append({
-            'name': "{} {}".format(
-                org_names_set[0], collector.type.provider.name)
-        })
+        if collector.type.provider.slug == "ga":
+            org_names_list = get_org_list_through_dashboard(collector)
+            org_names_list = list(set(org_names_list))
+            if len(org_names_list) > 1:
+                print "loads! {}".format(org_names_list)
+                raise "blow up"
+            if org_names_list:
+                data_source_attribute_list.append(
+                    "For {} {} provides {}".format(
+                        org_names_list[0],
+                        collector.type.provider.name,
+                        collector.data_set.name))
+    print data_source_attribute_list
     return data_source_attribute_list
 
 
