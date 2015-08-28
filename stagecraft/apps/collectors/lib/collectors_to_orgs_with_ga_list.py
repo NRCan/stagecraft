@@ -57,20 +57,17 @@ def get_org_list_through_dashboard(collector):
                 else:
                     for_collector_dashboards['owners'] = [owner.email]
                 #print owner.email
+        modules_to_owners = {}
         for module in dashboard.module_set.all():
-            for_collector_dashboards_modules = {module.slug: []}
             if module.data_set:
                 for owner in module.data_set.owners.all():
                     if "digital.cabinet-office.gov.uk" not in owner.email:
-                        for_collector_dashboards_modules[module.slug].append(
-                            owner.email)
+                        if module.slug in modules_to_owners:
+                            modules_to_owners[module.slug].append(owner.email)
+                        else:
+                            modules_to_owners[module.slug] = [owner.email]
                         #print owner.email
-            if for_collector_dashboards_modules[module.slug]:
-                if 'modules' in for_collector_dashboards[dashboard.slug]:
-                    for_collector_dashboards[dashboard.slug]['modules'].append(
-                        for_collector_dashboards_modules)
-                else:
-                    for_collector_dashboards[dashboard.slug]['modules'] = \
-                        [for_collector_dashboards_modules]
+        for_collector_dashboards[dashboard.slug]['modules'] = \
+            modules_to_owners
     return [dashboard.organisation.name for dashboard in dashboards
             if dashboard.organisation is not None], for_collector_dashboards
