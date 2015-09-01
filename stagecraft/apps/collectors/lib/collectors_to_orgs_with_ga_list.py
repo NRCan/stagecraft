@@ -7,6 +7,8 @@ import json
 
 for_collector = {}
 
+dashboards_to_emails = {}
+
 
 def get_list_of_orgs_with_ga():
     data_source_attribute_list = []
@@ -44,6 +46,11 @@ def get_list_of_orgs_with_ga():
     with open('emailz.json', 'w') as f:
         f.write(json.dumps(for_collector, indent=4, sort_keys=True))
 
+    with open('dashboards_to_emails.csv', 'w') as f:
+        f.write('Dashboard,Email\n')
+    with open('dashboards_to_emails.csv', 'a') as f:
+        for dashboard, emails in dashboards_to_emails.iteritems():
+            f.write('{},{}\n'.format(dashboard, ', '.join(list(emails))))
     print json.dumps(for_collector, indent=4, sort_keys=True)
     return data_source_attribute_list
 
@@ -61,6 +68,10 @@ def get_org_list_through_dashboard(collector):
                     for_collector_dashboards['owners'].append(owner.email)
                 else:
                     for_collector_dashboards['owners'] = [owner.email]
+                if dashboard.slug in dashboards_to_emails is not None:
+                    dashboards_to_emails[dashboard.slug].update([owner.email])
+                else:
+                    dashboards_to_emails[dashboard.slug] = set([owner.email])
                 # print owner.email
         modules_to_owners = {}
         for module in dashboard.module_set.all():
@@ -71,6 +82,12 @@ def get_org_list_through_dashboard(collector):
                             modules_to_owners[module.slug].append(owner.email)
                         else:
                             modules_to_owners[module.slug] = [owner.email]
+                        if dashboard.slug in dashboards_to_emails is not None:
+                            dashboards_to_emails[dashboard.slug].update(
+                                [owner.email])
+                        else:
+                            dashboards_to_emails[dashboard.slug] = set(
+                                [owner.email])
                         # print owner.email
         for_collector_dashboards[dashboard.slug]['modules'] = \
             modules_to_owners
