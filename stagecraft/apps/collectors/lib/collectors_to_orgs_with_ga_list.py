@@ -3,6 +3,7 @@ from stagecraft.apps.dashboards.models.module import(
     Module)
 from stagecraft.apps.dashboards.models.dashboard import(
     Dashboard)
+import json
 
 for_collector = {}
 
@@ -17,7 +18,7 @@ def get_list_of_orgs_with_ga():
                 if "digital.cabinet-office.gov.uk" not in owner.email:
                     for_collector_data_set[collector.data_set.name].append(
                         owner.email)
-                    #print owner.email
+                    # print owner.email
             org_names_list, for_collector_dashboards = \
                 get_org_list_through_dashboard(collector)
             org_names_set = set(org_names_list)
@@ -37,9 +38,13 @@ def get_list_of_orgs_with_ga():
             else:
                 for_collector[collector.slug] = {
                     'dashboards': for_collector_dashboards}
-    #print data_source_attribute_list
-    #print all_org_names
-    print for_collector
+    # print data_source_attribute_list
+    # print all_org_names
+
+    with open('emailz.json', 'w') as f:
+        f.write(json.dumps(for_collector, indent=4, sort_keys=True))
+
+    print json.dumps(for_collector, indent=4, sort_keys=True)
     return data_source_attribute_list
 
 
@@ -56,7 +61,7 @@ def get_org_list_through_dashboard(collector):
                     for_collector_dashboards['owners'].append(owner.email)
                 else:
                     for_collector_dashboards['owners'] = [owner.email]
-                #print owner.email
+                # print owner.email
         modules_to_owners = {}
         for module in dashboard.module_set.all():
             if module.data_set:
@@ -66,7 +71,7 @@ def get_org_list_through_dashboard(collector):
                             modules_to_owners[module.slug].append(owner.email)
                         else:
                             modules_to_owners[module.slug] = [owner.email]
-                        #print owner.email
+                        # print owner.email
         for_collector_dashboards[dashboard.slug]['modules'] = \
             modules_to_owners
     return [dashboard.organisation.name for dashboard in dashboards
