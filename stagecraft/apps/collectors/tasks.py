@@ -14,7 +14,7 @@ def log(message):
 
 
 @shared_task
-def run_collector(collector_slug, start, end):
+def run_collector(collector_slug, start=None, end=None):
     def get_config(collector_slug, start_at, end_at):
         collector = Collector.objects.get(slug=collector_slug)
         config = Namespace(
