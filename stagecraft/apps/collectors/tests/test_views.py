@@ -10,6 +10,7 @@ from stagecraft.apps.users.models import User
 from stagecraft.libs.authorization.tests.test_http import with_govuk_signon
 from stagecraft.libs.backdrop_client import disable_backdrop_connection
 from stagecraft.libs.views.utils import to_json
+from mock import patch
 
 
 class ProviderViewTestCase(TestCase):
@@ -807,3 +808,50 @@ class CollectorViewTestCase(TestCase):
             content_type='application/json')
 
         assert_that(response.status_code, equal_to(404))
+
+
+@patch('stagecraft.apps.collectors.views.run_collector_task')
+class RunCollectorTest(TestCase):
+
+    @with_govuk_signon(permissions=['admin'])
+    def test_run_collector(self, run_collector_mock):
+        collector = CollectorFactory()
+        response = self.client.post(
+            '/collector-run/{}'.format(collector.slug),
+            HTTP_AUTHORIZATION='Bearer correct-token',
+            content_type='application/json'
+        )
+        assert_that(response.status_code, equal_to(200))
+        run_collector_mock.delay.assert_called_with(collector.slug)
+
+    @with_govuk_signon(permissions=['collector'])
+    def test_returns_404_if_collector_does_not_exist(self, run_collector_mock):
+        response = self.client.post(
+            '/collector-run/{}'.format('non-existent-slug'),
+            HTTP_AUTHORIZATION='Bearer correct-token',
+            content_type='application/json'
+        )
+        assert_that(response.status_code, equal_to(404))
+
+    @with_govuk_signon(permissions=['collector'])
+    def test_returns_404_if_user_not_owner(self, run_collector_mock):
+        collector = CollectorFactory()
+        user, _ = User.objects.get_or_create(
+            email='not_correct_user.lastname@gov.uk')
+        collector.owners.add(user)
+        response = self.client.post(
+            '/collector-run/{}'.format(collector.slug),
+            HTTP_AUTHORIZATION='Bearer correct-token',
+            content_type='application/json'
+        )
+        assert_that(response.status_code, equal_to(404))
+
+    @with_govuk_signon(permissions=['signin'])
+    def test_requires_collectors_permission(self, run_collector_mock):
+        collector = CollectorFactory()
+        response = self.client.post(
+            '/collector-run/{}'.format(collector.slug),
+            HTTP_AUTHORIZATION='Bearer correct-token',
+            content_type='application/json'
+        )
+        assert_that(response.status_code, equal_to(403))
