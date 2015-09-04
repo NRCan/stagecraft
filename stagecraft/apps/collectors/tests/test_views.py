@@ -1,5 +1,6 @@
 import json
 import uuid
+from datetime import datetime
 from django.test import TestCase
 from hamcrest import assert_that, equal_to, has_key, has_entries, \
     match_equality
@@ -855,3 +856,45 @@ class RunCollectorTest(TestCase):
             content_type='application/json'
         )
         assert_that(response.status_code, equal_to(403))
+
+    @with_govuk_signon(permissions=['admin'])
+    def test_run_collector_with_start_and_end_dates(self, run_collector_mock):
+        collector = CollectorFactory()
+        start_date = datetime(2015, 8, 1).strftime('%Y-%m-%d')
+        end_date = datetime(2015, 8, 9).strftime('%Y-%m-%d')
+
+        response = self.client.post(
+            '/collector-run/{}?start_at={}&end_at={}'.format(
+                collector.slug, start_date, end_date),
+            HTTP_AUTHORIZATION='Bearer correct-token',
+            content_type='application/json'
+        )
+        assert_that(response.status_code, equal_to(200))
+        run_collector_mock.delay.assert_called_with(
+            collector.slug, "2015-08-01", "2015-08-09")
+
+    @with_govuk_signon(permissions=['admin'])
+    def test_400_if_only_start_date(self, run_collector_mock):
+        collector = CollectorFactory()
+        start_date = datetime(2015, 8, 1).strftime('%Y-%m-%d')
+
+        response = self.client.post(
+            '/collector-run/{}?start_at={}'.format(
+                collector.slug, start_date),
+            HTTP_AUTHORIZATION='Bearer correct-token',
+            content_type='application/json'
+        )
+        assert_that(response.status_code, equal_to(400))
+
+    @with_govuk_signon(permissions=['admin'])
+    def test_400_if_only_end_date(self, run_collector_mock):
+        collector = CollectorFactory()
+        end_date = datetime(2015, 8, 9).strftime('%Y-%m-%d')
+
+        response = self.client.post(
+            '/collector-run/{}?end_at={}'.format(
+                collector.slug, end_date),
+            HTTP_AUTHORIZATION='Bearer correct-token',
+            content_type='application/json'
+        )
+        assert_that(response.status_code, equal_to(400))
