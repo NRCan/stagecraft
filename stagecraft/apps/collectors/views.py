@@ -1,5 +1,6 @@
 import logging
 from operator import xor
+from django.views.decorators.csrf import csrf_exempt
 
 from stagecraft.apps.collectors.models import Provider, DataSource, \
     CollectorType, Collector
@@ -280,6 +281,7 @@ class CollectorView(ResourceView):
         }
 
 
+@csrf_exempt
 @permission_required(set(['collector', 'admin']))
 def run_collector(user, request, slug):
     start_at = request.GET.get('start_at', None)
