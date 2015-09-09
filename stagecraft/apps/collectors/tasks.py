@@ -1,5 +1,6 @@
+from __future__ import absolute_import
 from argparse import Namespace
-from celery import Celery, shared_task
+from celery import shared_task
 from celery.utils.log import get_task_logger
 from performanceplatform.collector.main import _run_collector
 from django.conf import settings
@@ -41,6 +42,3 @@ def run_collector(collector_slug, start=None, end=None):
 
     entry_point, args = get_config(collector_slug, start, end)
     _run_collector(entry_point, args)
-
-
-celery_app = Celery(broker='amqp://')
