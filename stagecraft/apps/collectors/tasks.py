@@ -8,9 +8,6 @@ from stagecraft.apps.collectors.models import Collector
 logger = get_task_logger(__name__)
 
 
-celery_app = Celery(broker='amqp://')
-
-
 @shared_task
 def log(message):
     logger.info(message)
@@ -44,3 +41,6 @@ def run_collector(collector_slug, start=None, end=None):
 
     entry_point, args = get_config(collector_slug, start, end)
     _run_collector(entry_point, args)
+
+
+celery_app = Celery(broker='amqp://')
