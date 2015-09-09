@@ -136,6 +136,8 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_RESULT_BACKEND = 'djcelery.backends.database.DatabaseBackend'
 CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
 
+CELERY_IMPORTS = ("run_collector")
+
 ROLES = [
     {
         "role": "collector",
