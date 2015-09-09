@@ -1,11 +1,14 @@
 from argparse import Namespace
-from celery import shared_task
+from celery import Celery, shared_task
 from celery.utils.log import get_task_logger
 from performanceplatform.collector.main import _run_collector
 from django.conf import settings
 from stagecraft.apps.collectors.models import Collector
 
 logger = get_task_logger(__name__)
+
+
+celery_app = Celery(broker='amqp://')
 
 
 @shared_task
