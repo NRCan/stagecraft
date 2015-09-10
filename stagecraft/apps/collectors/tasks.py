@@ -41,4 +41,5 @@ def run_collector(collector_slug, start=None, end=None):
         return collector.type.entry_point, config
 
     entry_point, args = get_config(collector_slug, start, end)
+    print args
     _run_collector(entry_point, args)
